@@ -1,9 +1,3 @@
-
-.idea/
-node_modules/
-android/.gradle/
-android/build/
-ios/Pods/
 # OSX
 #
 .DS_Store
@@ -79,4 +73,3 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
-f872c0b1017d068e537307294e9fbb418033ba1a
