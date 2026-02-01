@@ -7,6 +7,9 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 
 // -----------------------------------------------------------------------------
 // Theme & constants (Figma-aligned pastel purple / pink)
@@ -243,6 +246,7 @@ function RoutineCard({
 // Main screen
 // -----------------------------------------------------------------------------
 export default function RoutineScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const nextIdRef = useRef(11);
 
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
@@ -400,7 +404,11 @@ export default function RoutineScreen() {
 
       {/* Bottom Tab Bar (static) */}
       <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('HomeScreen')}
+        >
           <Text style={styles.tabIcon}>🏠</Text>
           <Text style={styles.tabLabel}>Ana Sayfa</Text>
         </TouchableOpacity>

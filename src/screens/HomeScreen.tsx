@@ -7,6 +7,9 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 
 // Theme colors - soft pastel purple and pink palette
 const theme = {
@@ -26,6 +29,7 @@ const theme = {
 };
 
 export default function HomeScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   // Water progress calculation (65% of 2000ml = 1300ml)
   const waterProgress = 0.65;
   const waterTarget = 2000;
@@ -153,7 +157,11 @@ export default function HomeScreen() {
             Ana Sayfa
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('RoutineScreen')}
+        >
           <Text style={styles.tabIcon}>📋</Text>
           <Text style={styles.tabLabel}>Rutin</Text>
         </TouchableOpacity>
