@@ -2,15 +2,16 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-// import RoutineScreen from '../screens/RoutineScreen';
-// import HomeScreen from '../screens/HomeScreen';
+// 1. ADIM: Bu satırların başındaki yorum işaretlerini (//) kaldırdık
+import RoutineScreen from '../screens/RoutineScreen';
+import HomeScreen from '../screens/HomeScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ChatDetailScreen from '../screens/ChatDetailScreen';
-// import LoginScreen from '../screens/LoginScreen';
 
 export type RootStackParamList = {
-  // HomeScreen: undefined;
-  // RoutineScreen: undefined;
+  // 2. ADIM: Tipleri aktif ettik
+  HomeScreen: undefined;
+  RoutineScreen: undefined;
   ChatScreen: undefined;
   ChatDetailScreen: {
     userId: string;
@@ -27,9 +28,10 @@ export default function AppNavigator() {
         initialRouteName="ChatScreen"
         screenOptions={{ headerShown: false }}
       >
+        {/* 3. ADIM: Sayfaları navigasyona tekrar ekledik */}
+        <Stack.Screen name="HomeScreen" component={HomeScreen} />
+        <Stack.Screen name="RoutineScreen" component={RoutineScreen} />
 
-        {/* <Stack.Screen name="HomeScreen" component={HomeScreen} /> */}
-        {/* <Stack.Screen name="RoutineScreen" component={RoutineScreen} /> */}
         <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen
           name="ChatDetailScreen"

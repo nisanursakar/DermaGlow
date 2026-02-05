@@ -421,7 +421,11 @@ export default function RoutineScreen() {
           <Text style={styles.tabIcon}>📷</Text>
           <Text style={styles.tabLabel}>Kamera</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.tabItem}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('ChatScreen')}
+        >
           <Text style={styles.tabIcon}>💬</Text>
           <Text style={styles.tabLabel}>Chat</Text>
         </TouchableOpacity>

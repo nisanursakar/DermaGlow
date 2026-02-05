@@ -21,7 +21,7 @@ import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType } from
 import { RootStackParamList } from '../navigation/AppNavigator';
 
 // -----------------------------------------------------------------------------
-// Theme (DermaGlow pastel style)
+// Theme
 // -----------------------------------------------------------------------------
 const theme = {
   background: '#F8F4FF',
@@ -110,6 +110,17 @@ const INITIAL_POSTS: CommunityPost[] = [
 ];
 
 const MESSAGES: MessageItem[] = [
+  // YAPAY ZEKA ASİSTANI
+  {
+    id: 'ai_bot',
+    userId: 'bot_01',
+    userName: 'DermaGlow Asistan',
+    lastMessage: 'Rutinini inceledim, nasıl yardımcı olabilirim? 🤖',
+    time: 'Şimdi',
+    unreadCount: 1,
+    isOnline: true,
+    skinType: 'Yapay Zeka',
+  },
   {
     id: '1',
     userId: 'user1',
@@ -142,7 +153,7 @@ const MESSAGES: MessageItem[] = [
   },
 ];
 
-// Image picker with camera and gallery options
+// Image picker
 const requestCameraPermission = async (): Promise<boolean> => {
   if (Platform.OS === 'android') {
     try {
@@ -162,7 +173,7 @@ const requestCameraPermission = async (): Promise<boolean> => {
       return false;
     }
   }
-  return true; // iOS handles permissions automatically
+  return true;
 };
 
 const pickImage = (): Promise<string | null> => {
@@ -181,20 +192,10 @@ const pickImage = (): Promise<string | null> => {
               resolve(null);
               return;
             }
-
             launchCamera(
-              {
-                mediaType: 'photo' as MediaType,
-                quality: 0.8,
-                saveToPhotos: true,
-              },
+              { mediaType: 'photo' as MediaType, quality: 0.8, saveToPhotos: true },
               (response: ImagePickerResponse) => {
-                if (response.didCancel) {
-                  resolve(null);
-                } else if (response.errorMessage) {
-                  Alert.alert('Hata', response.errorMessage);
-                  resolve(null);
-                } else if (response.assets && response.assets[0]) {
+                if (response.assets && response.assets[0]) {
                   resolve(response.assets[0].uri || null);
                 } else {
                   resolve(null);
@@ -207,17 +208,9 @@ const pickImage = (): Promise<string | null> => {
           text: 'Galeri',
           onPress: () => {
             launchImageLibrary(
-              {
-                mediaType: 'photo' as MediaType,
-                quality: 0.8,
-              },
+              { mediaType: 'photo' as MediaType, quality: 0.8 },
               (response: ImagePickerResponse) => {
-                if (response.didCancel) {
-                  resolve(null);
-                } else if (response.errorMessage) {
-                  Alert.alert('Hata', response.errorMessage);
-                  resolve(null);
-                } else if (response.assets && response.assets[0]) {
+                if (response.assets && response.assets[0]) {
                   resolve(response.assets[0].uri || null);
                 } else {
                   resolve(null);
@@ -232,7 +225,7 @@ const pickImage = (): Promise<string | null> => {
   });
 };
 
-// Helper functions
+// Helpers
 function getInitials(name: string): string {
   const parts = name.trim().split(' ');
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
@@ -244,7 +237,7 @@ function getTimeAgo(): string {
 }
 
 // -----------------------------------------------------------------------------
-// Comment Modal Component
+// Comment Modal
 // -----------------------------------------------------------------------------
 function CommentModal({
   visible,
@@ -322,7 +315,7 @@ function CommentModal({
 }
 
 // -----------------------------------------------------------------------------
-// Create Post Modal Component
+// Create Post Modal
 // -----------------------------------------------------------------------------
 function CreatePostModal({
   visible,
@@ -338,9 +331,7 @@ function CreatePostModal({
 
   const handlePickImage = async () => {
     const uri = await pickImage();
-    if (uri) {
-      setSelectedImage(uri);
-    }
+    if (uri) setSelectedImage(uri);
   };
 
   const handleCreatePost = () => {
@@ -384,7 +375,6 @@ function CreatePostModal({
               multiline
               textAlignVertical="top"
             />
-
             {selectedImage && (
               <View style={styles.imagePreviewContainer}>
                 <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
@@ -396,7 +386,6 @@ function CreatePostModal({
                 </TouchableOpacity>
               </View>
             )}
-
             <TouchableOpacity onPress={handlePickImage} style={styles.pickImageButton}>
               <Text style={styles.pickImageText}>📷 Fotoğraf Ekle</Text>
             </TouchableOpacity>
@@ -416,7 +405,7 @@ function CreatePostModal({
 }
 
 // -----------------------------------------------------------------------------
-// Post Card Component
+// Post Card
 // -----------------------------------------------------------------------------
 function CommunityPostCard({
   post,
@@ -452,12 +441,7 @@ function CommunityPostCard({
           style={styles.postFooterLeft}
         >
           <Text style={styles.postFooterIcon}>{post.isLiked ? '❤️' : '🤍'}</Text>
-          <Text
-            style={[
-              styles.postFooterText,
-              post.isLiked && styles.postFooterTextLiked,
-            ]}
-          >
+          <Text style={[styles.postFooterText, post.isLiked && styles.postFooterTextLiked]}>
             {post.likeCount}
           </Text>
         </TouchableOpacity>
@@ -475,7 +459,7 @@ function CommunityPostCard({
 }
 
 // -----------------------------------------------------------------------------
-// Message Row Component
+// Message Row
 // -----------------------------------------------------------------------------
 function MessageRow({
   item,
@@ -502,11 +486,9 @@ function MessageRow({
           <Text style={styles.messageUserName}>{item.userName}</Text>
           <Text style={styles.messageTime}>{item.time}</Text>
         </View>
-
         <Text numberOfLines={1} style={styles.messagePreview}>
           {item.lastMessage}
         </Text>
-
         <View style={styles.messageBottomRow}>
           <View style={styles.skinTypePill}>
             <Text style={styles.skinTypeText}>{item.skinType}</Text>
@@ -523,7 +505,7 @@ function MessageRow({
 }
 
 // -----------------------------------------------------------------------------
-// Main ChatScreen Component
+// Main ChatScreen
 // -----------------------------------------------------------------------------
 export default function ChatScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -558,36 +540,27 @@ export default function ChatScreen() {
   const handleAddComment = useCallback((postId: string, commentText: string) => {
     const newComment: Comment = {
       id: `c${nextCommentIdRef.current++}`,
-      userName: 'Sen', // Current user
+      userName: 'Sen',
       text: commentText,
       timeAgo: getTimeAgo(),
     };
-
     setPosts((prevPosts) =>
       prevPosts.map((post) => {
         if (post.id === postId) {
-          return {
-            ...post,
-            comments: [...post.comments, newComment],
-          };
+          return { ...post, comments: [...post.comments, newComment] };
         }
         return post;
       })
     );
-
-    // Update selected post if modal is open
     if (selectedPost?.id === postId) {
-      setSelectedPost({
-        ...selectedPost,
-        comments: [...selectedPost.comments, newComment],
-      });
+      setSelectedPost({ ...selectedPost, comments: [...selectedPost.comments, newComment] });
     }
   }, [selectedPost]);
 
   const handleCreatePost = useCallback((content: string, imageUri?: string) => {
     const newPost: CommunityPost = {
       id: `post${nextPostIdRef.current++}`,
-      userName: 'Sen', // Current user
+      userName: 'Sen',
       timeAgo: getTimeAgo(),
       content,
       imageUri,
@@ -595,7 +568,6 @@ export default function ChatScreen() {
       isLiked: false,
       comments: [],
     };
-
     setPosts((prevPosts) => [newPost, ...prevPosts]);
   }, []);
 
@@ -618,15 +590,13 @@ export default function ChatScreen() {
         <Text style={styles.headerIcon}>💬</Text>
         <Text style={styles.headerTitle}>Topluluk & Chat</Text>
       </View>
-
       <View style={styles.searchContainer}>
         <TextInput
-          placeholder="Search users or topics..."
+          placeholder="Ara..."
           placeholderTextColor={theme.textSecondary}
           style={styles.searchInput}
         />
       </View>
-
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionTitle}>Topluluk</Text>
         <TouchableOpacity
@@ -675,25 +645,39 @@ export default function ChatScreen() {
         onCreatePost={handleCreatePost}
       />
 
-      {/* Bottom Tab Bar */}
+      {/* --- ALT MENÜ (NAVIGATION) --- */}
       <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+        {/* 1. ANA SAYFA BUTONU */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('HomeScreen')} // ✅ BURASI EKLENDİ
+        >
           <Text style={styles.tabIcon}>🏠</Text>
           <Text style={styles.tabLabel}>Ana Sayfa</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
+
+        {/* 2. RUTİN BUTONU */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('RoutineScreen')} // ✅ BURASI EKLENDİ
+        >
           <Text style={styles.tabIcon}>📋</Text>
           <Text style={styles.tabLabel}>Rutin</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
           <Text style={styles.tabIcon}>📷</Text>
           <Text style={styles.tabLabel}>Kamera</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
           <Text style={styles.tabIcon}>💬</Text>
           <Text style={[styles.tabLabel, styles.tabLabelActive]}>Chat</Text>
           <View style={styles.tabActiveIndicator} />
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
           <Text style={styles.tabIcon}>⋯</Text>
           <Text style={styles.tabLabel}>Daha Fazla</Text>
@@ -704,7 +688,7 @@ export default function ChatScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// Styles
+// Styles (Aynı)
 // -----------------------------------------------------------------------------
 const styles = StyleSheet.create({
   container: {
@@ -714,8 +698,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
   },
-
-  // Header & search
   header: {
     backgroundColor: theme.headerBg,
     paddingTop: 48,
@@ -751,8 +733,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-
-  // Section headers
   sectionHeaderRow: {
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -777,8 +757,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-
-  // Community post card
   postCard: {
     marginHorizontal: 20,
     marginBottom: 12,
@@ -868,8 +846,6 @@ const styles = StyleSheet.create({
     color: theme.secondaryPurple,
     fontWeight: '600',
   },
-
-  // Messages section
   messagesSection: {
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -954,12 +930,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-
   bottomSpacing: {
     height: 24,
   },
-
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1076,8 +1049,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-
-  // Create post modal
   createPostContent: {
     padding: 20,
     maxHeight: 500,
@@ -1144,8 +1115,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
-
-  // Bottom tab bar
   tabBar: {
     flexDirection: 'row',
     backgroundColor: theme.cardBackground,

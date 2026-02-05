@@ -14,6 +14,9 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
+// 1. ADIM: Context'i içe aktarıyoruz
+import { useRoutine } from '../context/RoutineContext';
+
 // -----------------------------------------------------------------------------
 // Theme
 // -----------------------------------------------------------------------------
@@ -47,9 +50,22 @@ type Message = {
 type ChatDetailRouteProp = RouteProp<RootStackParamList, 'ChatDetailScreen'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ChatDetailScreen'>;
 
-// Mock initial messages (in real app, fetch from API)
+// Mock initial messages
 const getInitialMessages = (userId: string): Message[] => {
   const currentUserId = 'currentUser';
+
+  // Eğer Yapay Zeka ile konuşuluyorsa boş başlat veya hoşgeldin mesajı koy
+  if (userId === 'bot_01') {
+    return [{
+      id: 'm0',
+      text: 'Merhaba! Ben DermaGlow Asistan. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin. 🤖',
+      senderId: userId,
+      receiverId: currentUserId,
+      timestamp: new Date(),
+      isRead: true,
+    }];
+  }
+
   return [
     {
       id: 'm1',
@@ -67,20 +83,12 @@ const getInitialMessages = (userId: string): Message[] => {
       timestamp: new Date(Date.now() - 3300000),
       isRead: true,
     },
-    {
-      id: 'm3',
-      text: 'Niacinamide serum kullanıyorum, çok memnunum.',
-      senderId: userId,
-      receiverId: currentUserId,
-      timestamp: new Date(Date.now() - 3000000),
-      isRead: true,
-    },
   ];
 };
 
 // Helper functions
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
+  const parts = name ? name.trim().split(' ') : ['?'];
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
@@ -89,14 +97,6 @@ function formatTime(date: Date): string {
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
   return `${hours}:${minutes}`;
-}
-
-function isSameDay(date1: Date, date2: Date): boolean {
-  return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
-  );
 }
 
 // -----------------------------------------------------------------------------
@@ -140,10 +140,14 @@ export default function ChatDetailScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { userId, userName } = route.params;
 
+  // 2. ADIM: Context'ten rutini getiren fonksiyonu al
+  const { getRoutineSummary } = useRoutine();
+
   const currentUserId = 'currentUser';
   const flatListRef = useRef<FlatList>(null);
   const [messages, setMessages] = useState<Message[]>(getInitialMessages(userId));
   const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false); // AI yazıyor durumu için
   const nextMessageIdRef = useRef(100);
 
   // Set header title
@@ -160,7 +164,7 @@ export default function ChatDetailScreen() {
     });
   }, [navigation, userName]);
 
-  // Auto-scroll to bottom when new message is added
+  // Auto-scroll logic
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -169,12 +173,15 @@ export default function ChatDetailScreen() {
     }
   }, [messages.length]);
 
-  const handleSendMessage = useCallback(() => {
+  // Mesaj Gönderme ve AI Mantığı
+  const handleSendMessage = useCallback(async () => {
     if (!inputText.trim()) return;
 
+    // 1. Kullanıcı mesajını ekrana ekle
+    const userMsgText = inputText.trim();
     const newMessage: Message = {
       id: `m${nextMessageIdRef.current++}`,
-      text: inputText.trim(),
+      text: userMsgText,
       senderId: currentUserId,
       receiverId: userId,
       timestamp: new Date(),
@@ -184,26 +191,76 @@ export default function ChatDetailScreen() {
     setMessages((prev) => [...prev, newMessage]);
     setInputText('');
 
-    // Simulate reply after 1-2 seconds (optional)
-    setTimeout(() => {
-      const replyMessage: Message = {
-        id: `m${nextMessageIdRef.current++}`,
-        text: 'Teşekkürler! Bu bilgi çok yardımcı oldu.',
-        senderId: userId,
-        receiverId: currentUserId,
-        timestamp: new Date(),
-        isRead: false,
-      };
-      setMessages((prev) => [...prev, replyMessage]);
-    }, 1500);
-  }, [inputText, userId]);
+    // 2. Eğer Yapay Zeka (bot_01) ile konuşuluyorsa
+    if (userId === 'bot_01') {
+      setIsTyping(true); // "Yazıyor..." efekti eklenebilir
+
+      try {
+        // Rutin bilgisini alıyoruz
+        const routineContext = getRoutineSummary();
+
+        // ---------------------------------------------------------
+        // GERÇEK BACKEND ENTEGRASYONU (Burayı backend hazır olunca aç)
+        /*
+        const response = await fetch('YOUR_API_ENDPOINT/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userMsgText,
+            systemInstruction: `Sen uzman bir dermatologsun. Kullanıcının rutini aşağıdadır. Buna göre cevap ver:\n${routineContext}`,
+            // Diğer gerekli parametreler...
+          })
+        });
+        const data = await response.json();
+        const aiResponseText = data.reply; // Backend'den dönen cevap
+        */
+        // ---------------------------------------------------------
+
+        // SİMÜLASYON: Backend olmadığı için şimdilik context'i ekrana basıyoruz
+        // (Gerçek backend bağlandığında burayı sil)
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Yapay gecikme
+
+        const aiResponseText = `(AI Simülasyonu)\n\nSenin için şu rutin bilgisini okudum:\n${routineContext}\n\nBuna dayanarak sorunu cevaplayabilirim!`;
+
+        // 3. AI Cevabını Ekrana Ekle
+        const aiMessage: Message = {
+          id: `m${nextMessageIdRef.current++}`,
+          text: aiResponseText,
+          senderId: userId,
+          receiverId: currentUserId,
+          timestamp: new Date(),
+          isRead: false,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+
+      } catch (error) {
+        console.error("AI Hatası:", error);
+      } finally {
+        setIsTyping(false);
+      }
+
+    } else {
+      // Normal kullanıcılarla olan sohbet simülasyonu
+      setTimeout(() => {
+        const replyMessage: Message = {
+          id: `m${nextMessageIdRef.current++}`,
+          text: 'Teşekkürler! Bu bilgi çok yardımcı oldu.',
+          senderId: userId,
+          receiverId: currentUserId,
+          timestamp: new Date(),
+          isRead: false,
+        };
+        setMessages((prev) => [...prev, replyMessage]);
+      }, 1500);
+    }
+  }, [inputText, userId, getRoutineSummary]);
 
   const renderMessage: ListRenderItem<Message> = ({ item, index }) => {
     const isSent = item.senderId === currentUserId;
     const prevMessage = index > 0 ? messages[index - 1] : null;
     const showTime =
       !prevMessage ||
-      item.timestamp.getTime() - prevMessage.timestamp.getTime() > 300000 || // 5 minutes
+      item.timestamp.getTime() - prevMessage.timestamp.getTime() > 300000 ||
       isSent !== (prevMessage.senderId === currentUserId);
 
     return <MessageBubble message={item} isSent={isSent} showTime={showTime} />;
@@ -218,7 +275,9 @@ export default function ChatDetailScreen() {
       </View>
       <View style={styles.headerTextBlock}>
         <Text style={styles.headerName}>{userName}</Text>
-        <Text style={styles.headerStatus}>Çevrimiçi</Text>
+        <Text style={styles.headerStatus}>
+           {userId === 'bot_01' ? (isTyping ? 'Yazıyor...' : 'Çevrimiçi 🤖') : 'Çevrimiçi'}
+        </Text>
       </View>
     </View>
   );
@@ -264,7 +323,7 @@ export default function ChatDetailScreen() {
 }
 
 // -----------------------------------------------------------------------------
-// Styles
+// Styles (Değişmedi, aynı kaldı)
 // -----------------------------------------------------------------------------
 const styles = StyleSheet.create({
   container: {
