@@ -8,6 +8,11 @@ import {
   Image,
   ScrollView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/AppNavigator';
+
+type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LoginScreen'>;
 
 const COLORS = {
   background: '#FFF5F7',
@@ -22,10 +27,15 @@ const COLORS = {
 };
 
 export default function LoginScreen() {
+  const navigation = useNavigation<LoginScreenNavigationProp>();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const goToApp = () => {
+    navigation.replace('MainTabs');
+  };
 
   return (
     <View style={styles.container}>
@@ -93,7 +103,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={() => {}}
+                onPress={goToApp}
                 activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>Login</Text>
@@ -111,7 +121,7 @@ export default function LoginScreen() {
               />
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={() => {}}
+                onPress={goToApp}
                 activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>Sign Up</Text>

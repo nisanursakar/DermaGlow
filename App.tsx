@@ -1,16 +1,26 @@
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
-// Yeni oluşturduğun Context'i buraya ekliyoruz
 import { RoutineProvider } from './src/context/RoutineContext';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { LanguageProvider } from './src/context/LanguageContext';
+import { UserProfileProvider } from './src/context/UserProfileContext';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      {/* Uygulamanın tamamını veri havuzu ile sarmalıyoruz */}
-      <RoutineProvider>
-        <AppNavigator />
-      </RoutineProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <UserProfileProvider>
+          <RoutineProvider>
+            <NavigationContainer>
+              <AppNavigator />
+            </NavigationContainer>
+          </RoutineProvider>
+          </UserProfileProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

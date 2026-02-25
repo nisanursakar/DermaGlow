@@ -14,26 +14,11 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
-// 1. ADIM: Context'i içe aktarıyoruz
 import { useRoutine } from '../context/RoutineContext';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
-// -----------------------------------------------------------------------------
-// Theme
-// -----------------------------------------------------------------------------
-const theme = {
-  background: '#F8F4FF',
-  headerBg: '#EFE8F6',
-  cardBackground: '#FFFFFF',
-  primaryPurple: '#4B3B70',
-  secondaryPurple: '#887DA2',
-  lightPurple: '#DDC9F3',
-  iconBg: '#F5E6FA',
-  textPrimary: '#4B3B70',
-  textSecondary: '#8B7FA8',
-  shadowColor: 'rgba(0,0,0,0.12)',
-  sentMessageBg: '#7A66B8',
-  receivedMessageBg: '#F0EBF5',
-};
+// Theme comes from useTheme() in component
 
 // -----------------------------------------------------------------------------
 // Types
@@ -58,7 +43,7 @@ const getInitialMessages = (userId: string): Message[] => {
   if (userId === 'bot_01') {
     return [{
       id: 'm0',
-      text: 'Merhaba! Ben DermaGlow Asistan. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin. 🤖',
+      text: 'Merhaba! Ben DermaGlow Asistan. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin. 🤖', // Will be overridden with t() in component
       senderId: userId,
       receiverId: currentUserId,
       timestamp: new Date(),
@@ -106,30 +91,51 @@ function MessageBubble({
   message,
   isSent,
   showTime,
+  styles: bubbleStyles,
 }: {
   message: Message;
   isSent: boolean;
   showTime: boolean;
+  styles: ReturnType<typeof createChatDetailStyles>;
 }) {
   return (
-    <View style={[styles.messageBubbleContainer, isSent ? styles.sentContainer : styles.receivedContainer]}>
-      <View
-        style={[
-          styles.messageBubble,
-          isSent ? styles.sentBubble : styles.receivedBubble,
-        ]}
-      >
-        <Text style={[styles.messageText, isSent && styles.sentMessageText]}>
-          {message.text}
-        </Text>
+    <View style={[bubbleStyles.messageBubbleContainer, isSent ? bubbleStyles.sentContainer : bubbleStyles.receivedContainer]}>
+      <View style={[bubbleStyles.messageBubble, isSent ? bubbleStyles.sentBubble : bubbleStyles.receivedBubble]}>
+        <Text style={[bubbleStyles.messageText, isSent && bubbleStyles.sentMessageText]}>{message.text}</Text>
         {showTime && (
-          <Text style={[styles.messageTime, isSent && styles.sentMessageTime]}>
-            {formatTime(message.timestamp)}
-          </Text>
+          <Text style={[bubbleStyles.messageTime, isSent && bubbleStyles.sentMessageTime]}>{formatTime(message.timestamp)}</Text>
         )}
       </View>
     </View>
   );
+}
+
+function createChatDetailStyles(theme: ReturnType<typeof useTheme>['theme']) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.background },
+    messagesList: { padding: 16, paddingBottom: 8 },
+    headerInfo: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, backgroundColor: theme.cardBg, borderRadius: 16, marginBottom: 16, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+    avatarCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.lightPurple, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    avatarText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+    headerTextBlock: { flex: 1 },
+    headerName: { fontSize: 16, fontWeight: '700', color: theme.textPrimary, marginBottom: 2 },
+    headerStatus: { fontSize: 12, color: theme.success, fontWeight: '600' },
+    messageBubbleContainer: { marginBottom: 8, flexDirection: 'row' },
+    sentContainer: { justifyContent: 'flex-end' },
+    receivedContainer: { justifyContent: 'flex-start' },
+    messageBubble: { maxWidth: '75%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+    sentBubble: { backgroundColor: theme.primaryLight, borderBottomRightRadius: 4 },
+    receivedBubble: { backgroundColor: theme.iconBg, borderBottomLeftRadius: 4 },
+    messageText: { fontSize: 15, color: theme.textPrimary, lineHeight: 20 },
+    sentMessageText: { color: '#FFFFFF' },
+    messageTime: { fontSize: 11, color: theme.textSecondary, marginTop: 4, alignSelf: 'flex-end' },
+    sentMessageTime: { color: 'rgba(255,255,255,0.8)' },
+    inputContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.cardBg, borderTopWidth: 1, borderTopColor: theme.textSecondary + '40', alignItems: 'flex-end' },
+    input: { flex: 1, backgroundColor: theme.background, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, color: theme.textPrimary, maxHeight: 100, marginRight: 10 },
+    sendButton: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.primary, borderRadius: 20 },
+    sendButtonDisabled: { backgroundColor: theme.lightPurple },
+    sendButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -138,10 +144,11 @@ function MessageBubble({
 export default function ChatDetailScreen() {
   const route = useRoute<ChatDetailRouteProp>();
   const navigation = useNavigation<NavigationProp>();
+  const { theme } = useTheme();
+  const { t } = useLanguage();
   const { userId, userName } = route.params;
-
-  // 2. ADIM: Context'ten rutini getiren fonksiyonu al
   const { getRoutineSummary } = useRoutine();
+  const styles = React.useMemo(() => createChatDetailStyles(theme), [theme]);
 
   const currentUserId = 'currentUser';
   const flatListRef = useRef<FlatList>(null);
@@ -263,7 +270,7 @@ export default function ChatDetailScreen() {
       item.timestamp.getTime() - prevMessage.timestamp.getTime() > 300000 ||
       isSent !== (prevMessage.senderId === currentUserId);
 
-    return <MessageBubble message={item} isSent={isSent} showTime={showTime} />;
+    return <MessageBubble message={item} isSent={isSent} showTime={showTime} styles={styles} />;
   };
 
   const keyExtractor = (item: Message) => item.id;
@@ -303,7 +310,7 @@ export default function ChatDetailScreen() {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Mesaj yaz..."
+          placeholder={t('typeMessage')}
           placeholderTextColor={theme.textSecondary}
           value={inputText}
           onChangeText={setInputText}
@@ -315,140 +322,9 @@ export default function ChatDetailScreen() {
           style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
           disabled={!inputText.trim()}
         >
-          <Text style={styles.sendButtonText}>Gönder</Text>
+          <Text style={styles.sendButtonText}>{t('send')}</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-// -----------------------------------------------------------------------------
-// Styles (Değişmedi, aynı kaldı)
-// -----------------------------------------------------------------------------
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.background,
-  },
-  messagesList: {
-    padding: 16,
-    paddingBottom: 8,
-  },
-  headerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: theme.cardBackground,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: theme.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  avatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.lightPurple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  headerTextBlock: {
-    flex: 1,
-  },
-  headerName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.textPrimary,
-    marginBottom: 2,
-  },
-  headerStatus: {
-    fontSize: 12,
-    color: '#4CD964',
-    fontWeight: '600',
-  },
-  messageBubbleContainer: {
-    marginBottom: 8,
-    flexDirection: 'row',
-  },
-  sentContainer: {
-    justifyContent: 'flex-end',
-  },
-  receivedContainer: {
-    justifyContent: 'flex-start',
-  },
-  messageBubble: {
-    maxWidth: '75%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-  },
-  sentBubble: {
-    backgroundColor: theme.sentMessageBg,
-    borderBottomRightRadius: 4,
-  },
-  receivedBubble: {
-    backgroundColor: theme.receivedMessageBg,
-    borderBottomLeftRadius: 4,
-  },
-  messageText: {
-    fontSize: 15,
-    color: theme.textPrimary,
-    lineHeight: 20,
-  },
-  sentMessageText: {
-    color: '#FFFFFF',
-  },
-  messageTime: {
-    fontSize: 11,
-    color: theme.textSecondary,
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  sentMessageTime: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: theme.cardBackground,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E4F0',
-    alignItems: 'flex-end',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: theme.background,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: theme.textPrimary,
-    maxHeight: 100,
-    marginRight: 10,
-  },
-  sendButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: theme.primaryPurple,
-    borderRadius: 20,
-  },
-  sendButtonDisabled: {
-    backgroundColor: theme.lightPurple,
-  },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-});

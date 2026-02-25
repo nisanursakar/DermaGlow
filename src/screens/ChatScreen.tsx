@@ -16,13 +16,14 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType } from 'react-native-image-picker';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import type { MainTabParamList } from '../navigation/BottomTabNavigator';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useUserProfile } from '../context/UserProfileContext';
 
-// -----------------------------------------------------------------------------
-// Theme
-// -----------------------------------------------------------------------------
+// Fallback theme for static styles (screen also uses context theme for container)
 const theme = {
   background: '#F8F4FF',
   headerBg: '#EFE8F6',
@@ -69,7 +70,7 @@ type MessageItem = {
   skinType: string;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ChatScreen'>;
+type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'ChatScreen'>;
 
 // -----------------------------------------------------------------------------
 // Initial Data
@@ -326,6 +327,7 @@ function CreatePostModal({
   onClose: () => void;
   onCreatePost: (content: string, imageUri?: string) => void;
 }) {
+  const { t } = useLanguage();
   const [postText, setPostText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -359,7 +361,7 @@ function CreatePostModal({
       >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Yeni Gönderi</Text>
+            <Text style={styles.modalTitle}>{t('newPost')}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.modalCloseButton}>
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
@@ -515,6 +517,9 @@ export default function ChatScreen() {
   const [createPostModalVisible, setCreatePostModalVisible] = useState(false);
   const nextPostIdRef = useRef(4);
   const nextCommentIdRef = useRef(100);
+  const { theme: contextTheme } = useTheme();
+  const { t } = useLanguage();
+  const { profile: userProfile } = useUserProfile();
 
   const handleLike = useCallback((postId: string) => {
     setPosts((prevPosts) =>
@@ -560,7 +565,7 @@ export default function ChatScreen() {
   const handleCreatePost = useCallback((content: string, imageUri?: string) => {
     const newPost: CommunityPost = {
       id: `post${nextPostIdRef.current++}`,
-      userName: 'Sen',
+      userName: userProfile.displayName || 'Sen',
       timeAgo: getTimeAgo(),
       content,
       imageUri,
@@ -569,11 +574,11 @@ export default function ChatScreen() {
       comments: [],
     };
     setPosts((prevPosts) => [newPost, ...prevPosts]);
-  }, []);
+  }, [userProfile.displayName]);
 
   const handleMessagePress = useCallback(
     (userId: string, userName: string) => {
-      navigation.navigate('ChatDetailScreen', { userId, userName });
+      navigation.getParent?.()?.navigate('ChatDetailScreen', { userId, userName });
     },
     [navigation]
   );
@@ -588,23 +593,23 @@ export default function ChatScreen() {
     <View>
       <View style={styles.header}>
         <Text style={styles.headerIcon}>💬</Text>
-        <Text style={styles.headerTitle}>Topluluk & Chat</Text>
+        <Text style={styles.headerTitle}>{t('community')} & Chat</Text>
       </View>
       <View style={styles.searchContainer}>
         <TextInput
-          placeholder="Ara..."
-          placeholderTextColor={theme.textSecondary}
+          placeholder={t('searchUsersTopics')}
+          placeholderTextColor={contextTheme.textSecondary}
           style={styles.searchInput}
         />
       </View>
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Topluluk</Text>
+        <Text style={styles.sectionTitle}>{t('community')}</Text>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => setCreatePostModalVisible(true)}
           style={styles.createPostButtonHeader}
         >
-          <Text style={styles.createPostButtonHeaderText}>+ Yeni Gönderi</Text>
+          <Text style={styles.createPostButtonHeaderText}>+ {t('newPost')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -612,7 +617,7 @@ export default function ChatScreen() {
 
   const renderFooter = () => (
     <View style={styles.messagesSection}>
-      <Text style={styles.sectionTitle}>Mesajlar</Text>
+      <Text style={styles.sectionTitle}>{t('messages')}</Text>
       {MESSAGES.map((m) => (
         <MessageRow key={m.id} item={m} onPress={handleMessagePress} />
       ))}
@@ -621,7 +626,7 @@ export default function ChatScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: contextTheme.background }]}>
       <FlatList
         data={posts}
         keyExtractor={keyExtractor}
@@ -644,45 +649,6 @@ export default function ChatScreen() {
         onClose={() => setCreatePostModalVisible(false)}
         onCreatePost={handleCreatePost}
       />
-
-      {/* --- ALT MENÜ (NAVIGATION) --- */}
-      <View style={styles.tabBar}>
-        {/* 1. ANA SAYFA BUTONU */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('HomeScreen')} // ✅ BURASI EKLENDİ
-        >
-          <Text style={styles.tabIcon}>🏠</Text>
-          <Text style={styles.tabLabel}>Ana Sayfa</Text>
-        </TouchableOpacity>
-
-        {/* 2. RUTİN BUTONU */}
-        <TouchableOpacity
-          style={styles.tabItem}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('RoutineScreen')} // ✅ BURASI EKLENDİ
-        >
-          <Text style={styles.tabIcon}>📋</Text>
-          <Text style={styles.tabLabel}>Rutin</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Text style={styles.tabIcon}>📷</Text>
-          <Text style={styles.tabLabel}>Kamera</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Text style={styles.tabIcon}>💬</Text>
-          <Text style={[styles.tabLabel, styles.tabLabelActive]}>Chat</Text>
-          <View style={styles.tabActiveIndicator} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.tabItem} activeOpacity={0.7}>
-          <Text style={styles.tabIcon}>⋯</Text>
-          <Text style={styles.tabLabel}>Daha Fazla</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
