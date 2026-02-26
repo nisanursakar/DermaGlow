@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabase';
 import {
   View,
   Text,
@@ -46,26 +47,86 @@ export default function ProfileScreen() {
   const [skinTypeModalVisible, setSkinTypeModalVisible] = useState(false);
   const [sensitivityModalVisible, setSensitivityModalVisible] = useState(false);
 
-  useEffect(() => {
-    setDisplayName(profile.displayName);
-    setEmail(profile.email);
-    setPassword(profile.password);
+useEffect(() => {
+    const fetchRealUser = async () => {
+      try {
+        // Supabase'den o anki giriş yapmış kullanıcıyı çekiyoruz
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error) throw error;
+
+        if (user) {
+          // Giriş yapan kullanıcının mailini STATE'e yazıyoruz
+          setEmail(user.email ?? '');
+          // Eğer Supabase metadata'da isim varsa onu da çekebilirsin
+          if (user.user_metadata?.full_name) {
+            setDisplayName(user.user_metadata.full_name);
+          }
+        }
+      } catch (err) {
+        console.error("Kullanıcı bilgileri çekilemedi:", err);
+      }
+    };
+
+    fetchRealUser();
+
+    // Diğer yerel profil verilerini (Cilt tipi vb.) Context'ten çekiyoruz
     setSkinType(profile.skinType);
     setSensitivity(profile.sensitivity);
     setSkinProblems(profile.skinProblems);
-  }, [profile.displayName, profile.email, profile.password, profile.skinType, profile.sensitivity, profile.skinProblems]);
 
-  const handleSave = () => {
-    updateProfile({
-      displayName: displayName.trim() || profile.displayName,
-      email: email.trim() || profile.email,
-      password: password || profile.password,
-      skinType,
-      sensitivity,
-      skinProblems,
-    });
-    navigation.goBack();
-  };
+  }, [profile]); // Sadece [profile] kalsın, o uzun hata veren listeyi tamamen sil.
+const toggleSkinProblem = (problem: string) => {
+  if (skinProblems.includes(problem)) {
+    // Eğer zaten seçiliyse listeden çıkar
+    setSkinProblems(skinProblems.filter(p => p !== problem));
+  } else {
+    // Seçili değilse listeye ekle
+    setSkinProblems([...skinProblems, problem]);
+  }
+};
+ const handleSave = async () => {
+     try {
+       // 1. Giriş yapan kullanıcının bilgisini alıyoruz
+       const { data: { user } } = await supabase.auth.getUser();
+
+       if (!user) {
+         Alert.alert("Hata", "Oturum bulunamadı. Lütfen tekrar giriş yapın.");
+         return;
+       }
+
+       // 2. Supabase Database'e (yeni açtığın profiles tablosuna) kaydediyoruz
+       const { error } = await supabase
+         .from('profiles') // Supabase'de açtığın tablo adı tam olarak bu olmalı
+         .upsert({
+           id: user.id, // Auth'daki ID ile Database'deki ID'yi eşleştiriyoruz
+           display_name: displayName,
+           skin_type: skinType,
+           sensitivity: sensitivity,
+           skin_problems: skinProblems,
+           // created_at sütunu otomatik dolduğu için buraya yazmıyoruz
+         });
+
+       if (error) throw error;
+
+       // 3. Yerel Context'i de güncelliyoruz (Uygulama içinde anlık değişim için)
+       updateProfile({
+         displayName: displayName.trim(),
+         email: email.trim(),
+         password: password, // Şifre değişikliği varsa context'e yansır
+         skinType,
+         sensitivity,
+         skinProblems,
+       });
+
+       Alert.alert("Başarılı", "Profil bilgileriniz veri tabanına kaydedildi!");
+       navigation.goBack();
+
+     } catch (err) {
+       console.error("Kaydetme hatası:", err);
+       Alert.alert("Hata", "Bilgileriniz kaydedilirken bir sorun oluştu.");
+     }
+   };
 
   const handleChangePhoto = () => {
     launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, (res) => {
@@ -159,23 +220,42 @@ export default function ProfileScreen() {
             <Icon name="chevron-down" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
 
-          <Text style={[styles.label, { color: theme.textSecondary }]}>{t('skinProblems')}</Text>
-          <View style={styles.tagsRow}>
-            {skinProblems.map((p, i) => (
-              <View key={i} style={[styles.tag, { backgroundColor: theme.lightPurple }]}>
-                <Text style={[styles.tagText, { color: theme.primary }]}>{p}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+         <Text style={[styles.label, { color: theme.textSecondary }]}>{t('skinProblems')}</Text>
+                   <View style={styles.tagsRow}>
+                     {['Kuru Cilt', 'Akne İzleri', 'Hassasiyet', 'Siyah Nokta'].map((p, i) => {
+                       const isSelected = skinProblems.includes(p);
+                       return (
+                         <TouchableOpacity
+                           key={i}
+                           onPress={() => toggleSkinProblem(p)}
+                           style={[
+                             styles.tag,
+                             { backgroundColor: isSelected ? theme.primary : theme.lightPurple }
+                           ]}
+                         >
+                           <Text style={[
+                             styles.tagText,
+                             { color: isSelected ? '#FFF' : theme.primary }
+                           ]}>
+                             {p}
+                           </Text>
+                         </TouchableOpacity>
+                       );
+                     })}
+                   </View>
+                 </View>
 
-        <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.primary }]} onPress={handleSave} activeOpacity={0.8}>
-          <Icon name="save" size={20} color="#FFF" />
-          <Text style={styles.saveButtonText}>{t('save')}</Text>
-        </TouchableOpacity>
+                 <TouchableOpacity
+                   style={[styles.saveButton, { backgroundColor: theme.primary }]}
+                   onPress={handleSave}
+                   activeOpacity={0.8}
+                 >
+                   <Icon name="save" size={20} color="#FFF" />
+                   <Text style={styles.saveButtonText}>{t('save')}</Text>
+                 </TouchableOpacity>
 
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
+                 <View style={styles.bottomSpacing} />
+               </ScrollView>
 
       <Modal visible={skinTypeModalVisible} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSkinTypeModalVisible(false)}>
