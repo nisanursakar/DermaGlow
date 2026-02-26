@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../supabase';
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,8 +35,46 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const goToApp = () => {
-    navigation.replace('MainTabs');
+  const handleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        Alert.alert('Hata', error.message);
+        return;
+      }
+
+      navigation.replace('MainTabs');
+    } catch (e) {
+      Alert.alert('Hata', 'Giriş sırasında bir hata oluştu.');
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (password !== confirmPassword) {
+      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        Alert.alert('Hata', error.message);
+        return;
+      }
+
+      Alert.alert('Başarılı', 'Kayıt oluşturuldu');
+      navigation.replace('MainTabs');
+    } catch (e) {
+      Alert.alert('Hata', 'Kayıt sırasında bir hata oluştu.');
+    }
   };
 
   return (
@@ -103,7 +143,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={goToApp}
+                onPress={handleLogin}
                 activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>Login</Text>
@@ -121,7 +161,7 @@ export default function LoginScreen() {
               />
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={goToApp}
+                onPress={handleSignUp}
                 activeOpacity={0.8}
               >
                 <Text style={styles.primaryButtonText}>Sign Up</Text>
