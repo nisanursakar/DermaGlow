@@ -36,44 +36,44 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const handleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    if (!email || !password) {
+      Alert.alert('Hata', 'Lütfen e-posta ve şifre girin.');
+      return;
+    }
 
-      if (error) {
-        Alert.alert('Hata', error.message);
-        return;
-      }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
+    if (error) {
+      Alert.alert('Hata', error.message);
+    } else {
       navigation.replace('MainTabs');
-    } catch (e) {
-      Alert.alert('Hata', 'Giriş sırasında bir hata oluştu.');
     }
   };
 
   const handleSignUp = async () => {
-    if (password !== confirmPassword) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+    if (!email || !password || !confirmPassword) {
+      Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
       return;
     }
 
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+    if (password !== confirmPassword) {
+      Alert.alert('Hata', 'Şifreler eşleşmiyor.');
+      return;
+    }
 
-      if (error) {
-        Alert.alert('Hata', error.message);
-        return;
-      }
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-      Alert.alert('Başarılı', 'Kayıt oluşturuldu');
-      navigation.replace('MainTabs');
-    } catch (e) {
-      Alert.alert('Hata', 'Kayıt sırasında bir hata oluştu.');
+    if (error) {
+      Alert.alert('Hata', error.message);
+    } else {
+      Alert.alert('Başarılı', 'Kayıt oluşturuldu, şimdi giriş yapabilirsiniz.');
+      setIsLogin(true);
     }
   };
 
