@@ -30,15 +30,20 @@ const translations: Record<Language, Record<string, string>> = {
     copyright: '© 2026 DermaGlow. Tüm hakları saklıdır.',
     selectLanguage: 'Dil Seçin',
     helpCenterTitle: 'Yardım Merkezi',
-    helpCenterContent: 'Sık sorulan sorular ve kullanım kılavuzu burada yer alacaktır.',
+    helpCenterContent:
+      'DermaGlow Yardım Merkezi\'ne hoş geldiniz.\n\nBurada uygulamayı nasıl kullanacağınız, analiz ekranlarının ne anlama geldiği ve sık karşılaşılan sorunlar hakkında özet bilgiler bulabilirsiniz.\n\nSık sorulan sorular:\n• Cilt analizi nasıl yapılır?\n  - Ana ekrandan Kamera sekmesine geçin, \"Cilt Analizi\" modunu seçin ve yönergeleri takip edin.\n• Rutinime nasıl görev eklerim?\n  - Rutin sekmesine gidip \"Yeni görev ekle\" alanına adını yazın ve Kaydet\'e dokunun.\n• Son analizlerimi nereden görebilirim?\n  - Kamera sekmesindeki \"Analiz Geçmişi\" bölümünden ulaşabilirsiniz.\n\nDaha detaylı destek için İletişim ekranından bize ulaşabilirsiniz.',
     aboutUsTitle: 'Hakkımızda',
-    aboutUsContent: 'DermaGlow ile cilt ve saç analizinizi yapın, rutinlerinizi takip edin.',
+    aboutUsContent:
+      'DermaGlow, cilt ve saç derisi sağlığınızı daha bilinçli takip edebilmeniz için tasarlanmış bir kişisel bakım asistanıdır.\n\nAmacımız, karmaşık dermatoloji terimlerini sadeleştirerek herkes için anlaşılır hale getirmek ve günlük bakım rutinlerinizi sürdürülebilir bir alışkanlığa dönüştürmektir.\n\nDermaGlow ile:\n• Cilt ve saç derisi analizi yapabilir,\n• Günlük bakım rutininizi planlayabilir,\n• Zaman içindeki gelişiminizi takip edebilirsiniz.\n\nUygulama, tıbbi tanı koymaz ve doktor muayenesinin yerini almaz. Her zaman cilt sağlığınızla ilgili önemli kararlar için bir uzmana danışmanızı öneririz.',
     contactTitle: 'İletişim',
-    contactContent: 'Bize e-posta veya destek formu ile ulaşabilirsiniz.',
+    contactContent:
+      'Her türlü soru, öneri veya geri bildiriminiz bizim için çok değerli.\n\nBize ulaşabileceğiniz kanallar:\n• E-posta: destek@dermaglow.app\n• Geri bildirim: Uygulama içi değerlendirme ve yorum alanları üzerinden uygulama deneyiminizi paylaşabilirsiniz.\n\nGeri dönüş süremiz genellikle 2–3 iş günüdür. Yoğunluk durumuna göre bu süre değişiklik gösterebilir. Size daha iyi bir DermaGlow deneyimi sunabilmemiz için düşüncelerinizi bizimle paylaşmaktan çekinmeyin.',
     privacyPolicyTitle: 'Gizlilik Politikası',
-    privacyPolicyContent: 'Gizlilik politikamız metni burada yer alacaktır.',
+    privacyPolicyContent:
+      'Bu gizlilik politikası, DermaGlow uygulamasını kullanırken kişisel verilerinizin nasıl işlendiğini açıklar.\n\nTopladığımız veriler:\n• Profil bilgileri (ad, e-posta, temel cilt profili alanları)\n• Uygulama içi kullanım verileri (hangi ekranların ne sıklıkla kullanıldığı gibi anonim istatistikler)\n\nVerileri nasıl kullanıyoruz?\n• Uygulama deneyimini kişiselleştirmek,\n• Hata ve performans problemlerini tespit etmek,\n• Yeni özellikleri planlamak ve iyileştirmek için.\n\nVeri güvenliği:\n• Verileriniz makul güvenlik önlemleri ile korunur.\n• Verilerinizi üçüncü taraflara satmayız.\n\nHaklarınız:\n• Hesabınızı silmek,\n• Verilerinizin işlenmesine dair bilgi talep etmek için bizimle İletişim ekranı üzerinden bağlantıya geçebilirsiniz.\n\nBu metin bilgilendirme amaçlıdır ve zaman zaman güncellenebilir.',
     termsTitle: 'Kullanım Koşulları',
-    termsContent: 'Kullanım koşulları metni burada yer alacaktır.',
+    termsContent:
+      'DermaGlow uygulamasını kullanarak aşağıdaki temel kullanım koşullarını kabul etmiş olursunuz.\n\n1. Hizmetin niteliği\nDermaGlow, kişisel bakım takibi ve bilgilendirme amacıyla tasarlanmış bir mobil uygulamadır. Tıbbi tanı koymaz ve doktor tavsiyesinin yerine geçmez.\n\n2. Sorumluluk reddi\nUygulama içerisindeki öneriler genel bilgilendirme amaçlıdır. Cilt problemleriniz için daima bir dermatolog veya sağlık profesyoneline danışmalısınız.\n\n3. Kullanıcı yükümlülükleri\n• Hesap bilgilerinizin gizliliğinden siz sorumlusunuz.\n• Uygulamayı mevzuata aykırı veya kötüye kullanım amaçlı kullanamazsınız.\n\n4. Değişiklikler\nKullanım koşulları zaman zaman güncellenebilir. Önemli değişiklikler olduğunda uygulama içinden sizi bilgilendirmeye çalışırız.\n\nUygulamayı kullanmaya devam etmeniz, güncel koşulları kabul ettiğiniz anlamına gelir.',
     // Tabs
     tabHome: 'Ana Sayfa',
     tabRoutine: 'Rutin',
@@ -78,11 +83,17 @@ const translations: Record<Language, Record<string, string>> = {
     skinDiscover: 'Cilt tipine uygun ürünleri keşfet',
     skinHealthInfo: 'Cilt Sağlığı Bilgileri',
     drySkinReasons: 'Kuru Cilt Nedenleri',
-    drySkinSub: 'Yetersiz su tüketimi ve nem eksikliği cildinizi kurutabilir',
+    drySkinSub: 'Kuru cilt genellikle yetersiz su tüketimi ve nem eksikliği nedeniyle oluşur. Soğuk hava ve yanlış cilt bakımı da etkiler.',
+    drySkinDetail:
+      'Kuru cilt, cilt bariyerinin zayıflaması ve nem tutma kapasitesinin azalmasıyla ortaya çıkar.\n\nBaşlıca nedenler:\n• Yetersiz su tüketimi ve düşük nem oranı\n• Sert temizleyiciler ve alkol içeriği yüksek tonikler\n• Soğuk, rüzgarlı hava ve ani sıcaklık değişimleri\n• Yetersiz nemlendirici kullanımı veya cilt tipine uygun olmayan ürünler\n\nNe yapabilirsin?\n• Gün içinde düzenli su tüketmeye özen göster.\n• Cildini nazik, krem veya jel formda temizleyicilerle temizle.\n• Duş sonrası ilk 3–5 dakika içinde nemlendiricini uygula.\n• Kış aylarında daha yoğun dokulu, bariyer güçlendirici kremler tercih et.',
     waterEffect: 'Su Tüketiminin Etkisi',
-    waterEffectSub: 'Düzenli su içmek cildinizin nem dengesini korur ve parlaklık sağlar',
+    waterEffectSub: 'Düzenli su içmek cildin nem dengesini korur, elastikiyetini artırır ve sağlıklı bir parlaklık sağlar.',
+    waterEffectDetail:
+      'Vücudunun büyük bir kısmı sudan oluşur ve cilt, bu su dengesinden doğrudan etkilenir.\n\nDüzenli su tüketimi:\n• Cildin nem dengesini içeriden destekler,\n• Elastikiyetin korunmasına yardımcı olur,\n• Mat ve yorgun görünümü azaltabilir,\n• Toksinlerin atılım sürecini destekleyerek daha canlı bir görünüm sağlayabilir.\n\nKüçük ipuçları:\n• Gün içine yayılmış şekilde su içmeye çalış (örneğin her saat birkaç yudum).\n• Suyu sade içmek zor geliyorsa limon dilimi veya meyve parçalarıyla tatlandırabilirsin.\n• Kafeinli içecekleri aşırıya kaçmadan tüketmeye özen göster; çünkü vücuttan su atılımını artırabilirler.',
     routineDiff: 'Sabah & Akşam Rutini Farkı',
-    routineDiffSub: 'Sabah rutini koruma, akşam rutini temizleme ve onarım odaklıdır',
+    routineDiffSub: 'Sabah rutini cildi korumaya, akşam rutini ise temizlemeye ve onarmaya odaklanır. Her ikisi de cilt sağlığı için önemlidir.',
+    routineDiffDetail:
+      'Sabah ve akşam rutinleri aynı ürünlerden oluşsa bile amaçları farklıdır.\n\nSabah rutini odağı:\n• Gece boyunca biriken fazla sebumu nazikçe arındırmak,\n• Cildi güne hazırlamak ve çevresel faktörlere (güneş, kirlilik vb.) karşı korumak,\n• Güneş koruyucu ile cilt bariyerini desteklemek.\n\nAkşam rutini odağı:\n• Makyaj, güneş kremi ve gün boyu biriken kirleri tamamen temizlemek,\n• Cilt bariyerini onarmaya yardımcı aktif içerikleri (nemlendiriciler, bariyer destekleyiciler vb.) uygulamak,\n• Hücre yenilenmesinin en aktif olduğu gece saatlerinde cilde bakım yapmak.\n\nİpucu: Rutinini cilt tipine ve mevsime göre hafifçe güncellemek, uzun vadede daha dengeli bir cilt görünümü sağlar.',
     // Routine
     dailyRoutine: 'Günlük Rutin',
     morningRoutine: 'Sabah Rutini',
@@ -159,15 +170,20 @@ const translations: Record<Language, Record<string, string>> = {
     copyright: '© 2026 DermaGlow. All rights reserved.',
     selectLanguage: 'Select Language',
     helpCenterTitle: 'Help Center',
-    helpCenterContent: 'FAQ and user guide will be available here.',
+    helpCenterContent:
+      'Welcome to the DermaGlow Help Center.\n\nHere you can find quick explanations on how to use the app, what the analysis screens mean, and answers to common issues.\n\nFrequently asked questions:\n• How do I perform a skin analysis?\n  - Go to the Camera tab on the home screen, choose "Skin Analysis" mode and follow the on‑screen steps.\n• How can I add steps to my routine?\n  - Open the Routine tab, type the name of your task into "Add new task" and tap Add.\n• Where can I see my past analyses?\n  - Check the "Analysis History" section in the Camera tab.\n\nFor more detailed support, you can contact us from the Contact screen.',
     aboutUsTitle: 'About Us',
-    aboutUsContent: 'Analyze your skin and scalp, track your routines with DermaGlow.',
+    aboutUsContent:
+      'DermaGlow is a personal care assistant designed to help you track your skin and scalp health more consciously.\n\nOur goal is to simplify complex dermatology concepts so that everyone can understand them, and to turn your daily care routines into sustainable habits.\n\nWith DermaGlow you can:\n• Perform skin and scalp analyses,\n• Plan your daily care routine,\n• Track your progress over time.\n\nDermaGlow does not provide medical diagnosis and is not a substitute for a doctor\'s examination. Always consult a professional for important decisions about your skin health.',
     contactTitle: 'Contact',
-    contactContent: 'You can reach us via email or support form.',
+    contactContent:
+      'Your questions, ideas and feedback are very valuable to us.\n\nYou can reach us via:\n• E‑mail: support@dermaglow.app\n• Feedback: You can share your experience through in‑app ratings and comments.\n\nOur usual response time is 2–3 business days, depending on overall volume. Please do not hesitate to share your thoughts so we can build a better DermaGlow experience for you.',
     privacyPolicyTitle: 'Privacy Policy',
-    privacyPolicyContent: 'Our privacy policy text will appear here.',
+    privacyPolicyContent:
+      'This privacy policy explains how your personal data is processed when you use the DermaGlow app.\n\nData we collect:\n• Profile information (name, e‑mail, basic skin profile fields)\n• In‑app usage data (anonymous statistics such as which screens are used and how often)\n\nHow we use this data:\n• To personalize your app experience,\n• To detect errors and performance issues,\n• To plan and improve new features.\n\nData security:\n• Your data is protected with reasonable security measures.\n• We do not sell your data to third parties.\n\nYour rights:\n• Request deletion of your account,\n• Request information about how your data is processed via the Contact screen.\n\nThis text is for information purposes and may be updated from time to time.',
     termsTitle: 'Terms of Use',
-    termsContent: 'Terms of use text will appear here.',
+    termsContent:
+      'By using the DermaGlow app, you agree to the following basic terms of use.\n\n1. Nature of the service\nDermaGlow is a mobile application designed for personal care tracking and general information. It does not provide medical diagnosis and is not a replacement for professional medical advice.\n\n2. Disclaimer\nThe suggestions and explanations in the app are for general information only. Always consult a dermatologist or healthcare professional for skin problems.\n\n3. User obligations\n• You are responsible for keeping your account information confidential.\n• You may not use the app for illegal or abusive purposes.\n\n4. Changes\nThese terms of use may be updated from time to time. We will try to notify you of important changes through the app.\n\nContinuing to use the app means you accept the latest version of these terms.',
     tabHome: 'Home',
     tabRoutine: 'Routine',
     tabCamera: 'Camera',
@@ -205,10 +221,16 @@ const translations: Record<Language, Record<string, string>> = {
     skinHealthInfo: 'Skin Health Information',
     drySkinReasons: 'Dry Skin Causes',
     drySkinSub: 'Insufficient water intake and lack of moisture can dry your skin',
+    drySkinDetail:
+      'Dry skin appears when the skin barrier weakens and its ability to hold moisture is reduced.\n\nMain causes:\n• Insufficient water intake and low humidity\n• Harsh cleansers and high‑alcohol toners\n• Cold, windy weather and sudden temperature changes\n• Not using enough moisturizer or using products not suited to your skin type\n\nWhat can you do?\n• Try to drink water regularly throughout the day.\n• Cleanse your skin with gentle cream or gel cleansers.\n• Apply your moisturizer within the first 3–5 minutes after showering.\n• In winter, choose richer, barrier‑supporting creams.',
     waterEffect: 'Effect of Water Consumption',
     waterEffectSub: 'Drinking water regularly maintains your skin\'s moisture balance and radiance',
+    waterEffectDetail:
+      'A large part of your body is made up of water, and your skin is directly affected by this balance.\n\nRegular water intake can:\n• Support the skin\'s moisture balance from within,\n• Help maintain elasticity,\n• Reduce a dull and tired appearance,\n• Support detox processes, contributing to a more radiant look.\n\nSmall tips:\n• Try to sip water throughout the day (for example, a few sips every hour).\n• If plain water is hard to drink, you can flavor it with lemon slices or pieces of fruit.\n• Be mindful with excessive caffeine intake, as it may increase water loss from the body.',
     routineDiff: 'Morning & Evening Routine Difference',
     routineDiffSub: 'Morning routine is for protection, evening for cleansing and repair',
+    routineDiffDetail:
+      'Even when you use similar products, morning and evening routines have different goals.\n\nMorning routine focus:\n• Gently remove excess sebum that accumulated overnight,\n• Prepare the skin for the day and protect it from environmental factors (sun, pollution, etc.),\n• Support the skin barrier with sunscreen.\n\nEvening routine focus:\n• Thoroughly remove makeup, sunscreen and daily buildup,\n• Apply repairing and barrier‑supporting products (moisturizers, barrier‑strengthening formulas, etc.),\n• Care for the skin during night‑time when cell renewal is most active.\n\nTip: Adjusting your routine slightly based on your skin type and the season can help you maintain a more balanced complexion in the long term.',
     dailyRoutine: 'Daily Routine',
     morningRoutine: 'Morning Routine',
     eveningRoutine: 'Evening Routine',

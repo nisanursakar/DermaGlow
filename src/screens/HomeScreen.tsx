@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,35 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
   const { t } = useLanguage();
   const { profile } = useUserProfile();
   const displayName = profile.displayName || 'Nisa';
+
+  type InfoType = 'drySkin' | 'waterEffect' | 'routineDiff';
+  const [selectedInfo, setSelectedInfo] = useState<InfoType | null>(null);
+
+  const getInfoTitleKey = (info: InfoType) => {
+    switch (info) {
+      case 'drySkin':
+        return 'drySkinReasons';
+      case 'waterEffect':
+        return 'waterEffect';
+      case 'routineDiff':
+        return 'routineDiff';
+      default:
+        return 'skinHealthInfo';
+    }
+  };
+
+  const getInfoDetailKey = (info: InfoType) => {
+    switch (info) {
+      case 'drySkin':
+        return 'drySkinDetail';
+      case 'waterEffect':
+        return 'waterEffectDetail';
+      case 'routineDiff':
+        return 'routineDiffDetail';
+      default:
+        return 'skinHealthInfo';
+    }
+  };
 
   const waterProgress = 0.65;
   const waterTarget = 2000;
@@ -96,7 +125,11 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
 
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>{t('skinHealthInfo')}</Text>
 
-        <View style={[styles.infoCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}>
+        <TouchableOpacity
+          style={[styles.infoCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}
+          activeOpacity={0.8}
+          onPress={() => setSelectedInfo('drySkin')}
+        >
           <View style={[styles.infoIconContainer, { backgroundColor: theme.accentPink ?? theme.lightPurple }]}>
             <Text style={styles.infoIcon}>💧</Text>
           </View>
@@ -104,9 +137,13 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
             <Text style={[styles.infoTitle, { color: theme.textPrimary }]}>{t('drySkinReasons')}</Text>
             <Text style={[styles.infoSubtitle, { color: theme.textSecondary }]}>{t('drySkinSub')}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={[styles.infoCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}>
+        <TouchableOpacity
+          style={[styles.infoCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}
+          activeOpacity={0.8}
+          onPress={() => setSelectedInfo('waterEffect')}
+        >
           <View style={[styles.infoIconContainer, { backgroundColor: theme.accentPink ?? theme.lightPurple }]}>
             <Text style={styles.infoIcon}>🌊</Text>
           </View>
@@ -114,9 +151,13 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
             <Text style={[styles.infoTitle, { color: theme.textPrimary }]}>{t('waterEffect')}</Text>
             <Text style={[styles.infoSubtitle, { color: theme.textSecondary }]}>{t('waterEffectSub')}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        <View style={[styles.infoCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}>
+        <TouchableOpacity
+          style={[styles.infoCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}
+          activeOpacity={0.8}
+          onPress={() => setSelectedInfo('routineDiff')}
+        >
           <View style={[styles.infoIconContainer, { backgroundColor: theme.accentPink ?? theme.lightPurple }]}>
             <Text style={styles.infoIcon}>🌅</Text>
           </View>
@@ -124,10 +165,32 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
             <Text style={[styles.infoTitle, { color: theme.textPrimary }]}>{t('routineDiff')}</Text>
             <Text style={[styles.infoSubtitle, { color: theme.textSecondary }]}>{t('routineDiffSub')}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {selectedInfo && (
+        <View style={[styles.infoSheetOverlay, { backgroundColor: theme.background + 'CC' }]}>
+          <View style={[styles.infoSheet, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}>
+            <TouchableOpacity
+              style={styles.infoSheetClose}
+              onPress={() => setSelectedInfo(null)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={[styles.infoSheetCloseText, { color: theme.textSecondary }]}>✕</Text>
+            </TouchableOpacity>
+            <Text style={[styles.infoSheetTitle, { color: theme.textPrimary }]}>
+              {t(getInfoTitleKey(selectedInfo))}
+            </Text>
+            <ScrollView style={styles.infoSheetBody} showsVerticalScrollIndicator={true}>
+              <Text style={[styles.infoSheetText, { color: theme.textSecondary }]}>
+                {t(getInfoDetailKey(selectedInfo))}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -164,4 +227,47 @@ const styles = StyleSheet.create({
   infoTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
   infoSubtitle: { fontSize: 13, lineHeight: 18 },
   bottomSpacing: { height: 20 },
+  infoSheetOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
+    justifyContent: 'flex-end',
+  },
+  infoSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    maxHeight: '70%',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  infoSheetClose: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+    zIndex: 1,
+  },
+  infoSheetCloseText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  infoSheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    paddingRight: 32,
+  },
+  infoSheetBody: {
+    maxHeight: '100%',
+  },
+  infoSheetText: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
 });

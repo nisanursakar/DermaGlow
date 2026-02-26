@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import BottomTabNavigator from './BottomTabNavigator';
 import ChatDetailScreen from '../screens/ChatDetailScreen';
 import AnalysisDetailScreen from '../screens/AnalysisDetailScreen';
@@ -40,6 +41,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const headerOptions = {
     headerStyle: { backgroundColor: theme.headerBg },
@@ -66,37 +68,37 @@ export default function AppNavigator() {
         <Stack.Screen
           name="AnalysisDetailScreen"
           component={AnalysisDetailScreen}
-          options={{ headerShown: true, title: 'Analiz Detayı', ...headerOptions }}
+          options={{ headerShown: true, title: t('analysisDetailTitle'), ...headerOptions }}
         />
         <Stack.Screen
           name="LanguageScreen"
           component={LanguageScreen}
-          options={{ headerShown: true, title: 'Dil', ...headerOptions }}
+          options={{ headerShown: true, title: t('selectLanguage'), ...headerOptions }}
         />
         <Stack.Screen
           name="HelpCenterScreen"
           component={HelpCenterScreen}
-          options={{ headerShown: true, title: 'Yardım Merkezi', ...headerOptions }}
+          options={{ headerShown: true, title: t('helpCenterTitle'), ...headerOptions }}
         />
         <Stack.Screen
           name="AboutUsScreen"
           component={AboutUsScreen}
-          options={{ headerShown: true, title: 'Hakkımızda', ...headerOptions }}
+          options={{ headerShown: true, title: t('aboutUsTitle'), ...headerOptions }}
         />
         <Stack.Screen
           name="ContactScreen"
           component={ContactScreen}
-          options={{ headerShown: true, title: 'İletişim', ...headerOptions }}
+          options={{ headerShown: true, title: t('contactTitle'), ...headerOptions }}
         />
         <Stack.Screen
           name="PrivacyPolicyScreen"
           component={PrivacyPolicyScreen}
-          options={{ headerShown: true, title: 'Gizlilik Politikası', ...headerOptions }}
+          options={{ headerShown: true, title: t('privacyPolicyTitle'), ...headerOptions }}
         />
         <Stack.Screen
           name="TermsOfUseScreen"
           component={TermsOfUseScreen}
-          options={{ headerShown: true, title: 'Kullanım Koşulları', ...headerOptions }}
+          options={{ headerShown: true, title: t('termsTitle'), ...headerOptions }}
         />
         <Stack.Screen
           name="LoginScreen"
