@@ -38,6 +38,8 @@ export default function ProfileScreen() {
   const { t } = useLanguage();
   const { profile, updateProfile, setProfileImage } = useUserProfile();
 
+  // Profile image state is defined immediately after context so it is in scope for all handlers
+  const [profileImage, setProfileImageState] = useState<string | null>(profile.profileImageUri);
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [email, setEmail] = useState(profile.email);
   const [password, setPassword] = useState(profile.password);
@@ -47,17 +49,20 @@ export default function ProfileScreen() {
   const [skinTypeModalVisible, setSkinTypeModalVisible] = useState(false);
   const [sensitivityModalVisible, setSensitivityModalVisible] = useState(false);
 
+
   useEffect(() => {
     const fetchRealUser = async () => {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
         if (authError) throw authError;
 
         if (user) {
           setEmail(user.email ?? '');
 
-          // YENİ: Supabase "profiles" tablosundan güncel verileri çekiyoruz
-          const { data: profileData, error: profileError } = await supabase
+          const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
@@ -65,26 +70,26 @@ export default function ProfileScreen() {
 
           if (profileData) {
             setDisplayName(profileData.display_name || user.user_metadata?.full_name || '');
-            setSkinType(profileData.skin_type || 'combination');
-            setSensitivity(profileData.sensitivity || 'medium');
-            setSkinProblems(profileData.skin_problems || []);
+            setSkinType((profileData.skin_type as SkinType) || 'combination');
+            setSensitivity((profileData.sensitivity as SensitivityLevel) || 'medium');
+            setSkinProblems((profileData.skin_problems as string[]) || []);
+            const imageFromDb = (profileData['profile_image_url'] as string | null) ?? null;
+            setProfileImageState(imageFromDb);
+            setProfileImage(imageFromDb);
 
-            // Çektiğimiz güncel DB bilgisini Context'e yansıtıyoruz ki her yerde görünsün
             updateProfile({
               displayName: profileData.display_name || user.user_metadata?.full_name || '',
-              skinType: profileData.skin_type || 'combination',
-              sensitivity: profileData.sensitivity || 'medium',
-              skinProblems: profileData.skin_problems || [],
+              skinType: (profileData.skin_type as SkinType) || 'combination',
+              sensitivity: (profileData.sensitivity as SensitivityLevel) || 'medium',
+              skinProblems: (profileData.skin_problems as string[]) || [],
+              profileImageUri: imageFromDb,
             });
-          } else {
-            // Eğer profile tablosu boşsa sadece metadata'dan ismi al
-            if (user.user_metadata?.full_name) {
-              setDisplayName(user.user_metadata.full_name);
-            }
+          } else if (user.user_metadata?.full_name) {
+            setDisplayName(user.user_metadata.full_name);
           }
         }
       } catch (err) {
-        console.error("Kullanıcı bilgileri çekilemedi:", err);
+        console.error('Kullanıcı bilgileri çekilemedi:', err);
       }
     };
 
@@ -114,15 +119,23 @@ export default function ProfileScreen() {
       });
 
       // 2. Profiles tablosunu Upsert (Güncelleme/Ekleme) yapıyoruz
+      console.log('Supabase Schema Check:', profileImage);
+
+      const userData = {
+        id: user.id,
+        display_name: displayName.trim(),
+        skin_type: skinType,
+        sensitivity: sensitivity,
+        skin_problems: skinProblems,
+        'profile_image_url': profileImage,
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log('Saving data:', userData);
+
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          display_name: displayName.trim(),
-          skin_type: skinType,
-          sensitivity: sensitivity,
-          skin_problems: skinProblems,
-        });
+        .upsert(userData);
 
       if (error) throw error;
 
@@ -130,10 +143,11 @@ export default function ProfileScreen() {
       updateProfile({
         displayName: displayName.trim(),
         email: email.trim(),
-        password: password,
+        password,
         skinType,
         sensitivity,
         skinProblems,
+        profileImageUri: profileImage,
       });
 
       Alert.alert("Başarılı", "Profil bilgileriniz başarıyla güncellendi!");
@@ -147,7 +161,11 @@ export default function ProfileScreen() {
 
   const handleChangePhoto = () => {
     launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, (res) => {
-      if (res.assets?.[0]?.uri) setProfileImage(res.assets[0].uri);
+      const uri = res.assets?.[0]?.uri;
+      if (uri) {
+        setProfileImageState(uri);
+        setProfileImage(uri);
+      }
     });
   };
 
@@ -172,8 +190,8 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={[styles.avatarSection, { backgroundColor: theme.headerBg }]}>
           <TouchableOpacity onPress={handleChangePhoto} style={styles.avatarWrap} activeOpacity={0.8}>
-            {profile.profileImageUri ? (
-              <Image source={{ uri: profile.profileImageUri }} style={styles.avatar} />
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
                 <Text style={styles.avatarText}>{getInitials(displayName || profile.displayName)}</Text>

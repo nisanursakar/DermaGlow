@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -15,7 +16,7 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
   const { theme } = useTheme();
   const { t } = useLanguage();
   const { profile } = useUserProfile();
-  const displayName = profile.displayName || 'Nisa';
+  const displayName = profile.displayName ;
 
   type InfoType = 'drySkin' | 'waterEffect' | 'routineDiff';
   const [selectedInfo, setSelectedInfo] = useState<InfoType | null>(null);
@@ -60,15 +61,23 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
       >
         <View style={styles.greetingContainer}>
           <View style={styles.greetingTextContainer}>
-            <Text style={[styles.greetingText, { color: theme.textPrimary }]}>{t('hello')} 👋</Text>
-            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>{t('welcome')}, {displayName}</Text>
+            <Text style={[styles.greetingText, { color: theme.textPrimary }]}>
+              Hoş Geldin, {displayName}
+            </Text>
+            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>
+              {t('skinDiscover')}
+            </Text>
           </View>
           <TouchableOpacity
             style={[styles.avatarContainer, { backgroundColor: theme.primary, shadowColor: theme.shadow }]}
             onPress={() => navigation.getParent?.()?.navigate('ProfileScreen')}
             activeOpacity={0.8}
           >
-            <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+            {profile.profileImageUri ? (
+              <Image source={{ uri: profile.profileImageUri }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -203,7 +212,23 @@ const styles = StyleSheet.create({
   greetingTextContainer: { flex: 1 },
   greetingText: { fontSize: 24, fontWeight: '700', marginBottom: 4 },
   welcomeText: { fontSize: 16, fontWeight: '500' },
-  avatarContainer: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
   avatarText: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   card: { borderRadius: 16, padding: 20, marginBottom: 16, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
