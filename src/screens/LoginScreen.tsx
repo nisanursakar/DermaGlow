@@ -5,40 +5,34 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Image,
   ScrollView,
-  Alert
+  Alert,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LoginScreen'>;
 
-const COLORS = {
-  background: '#FFF5F7',
-  surface: '#FFFFFF',
-  primary: '#E8A0B5',
-  primaryDark: '#D4899E',
-  text: '#5C4A4F',
-  textMuted: '#8B7378',
-  border: '#F0D4DB',
-  tabActive: '#E8A0B5',
-  tabInactive: '#F5E1E6',
-};
-
 export default function LoginScreen() {
   const navigation = useNavigation<LoginScreenNavigationProp>();
+  const { theme } = useTheme();
+  const { t, language, setLanguage } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
 
-  // YENİ: İsim ve Soyisim için ayrı stateler
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -69,7 +63,6 @@ export default function LoginScreen() {
       return;
     }
 
-    // İki kutudaki ismi birleştiriyoruz
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     const { data, error } = await supabase.auth.signUp({
@@ -102,106 +95,185 @@ export default function LoginScreen() {
     }
   };
 
+  const br = theme.borderRadius;
+  const brLarge = theme.borderRadiusLarge ?? 24;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Dil butonu – sağ üst */}
+      <View style={[styles.langRow, { backgroundColor: theme.background }]}>
+        <TouchableOpacity
+          style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
+          onPress={() => setLanguage(language === 'tr' ? 'en' : 'tr')}
+          activeOpacity={0.7}
+        >
+          <Icon name="globe" size={18} color={theme.primary} />
+          <Text style={[styles.langButtonText, { color: theme.primary }]}>
+            {language === 'tr' ? 'EN' : 'TR'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        {/* Logo – sadece çizim; arka plan şeffaf, beyaz kutu yok */}
+        <View style={[styles.logoSection, { backgroundColor: theme.background }]}>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={[styles.logo, { backgroundColor: 'transparent' }]}
+            resizeMode="contain"
+          />
+          <Text style={[styles.appName, { color: theme.primary }]}>{t('appName')}</Text>
+        </View>
 
-        <View style={styles.tabContainer}>
+        <View style={[styles.tabContainer, { backgroundColor: theme.iconBg, borderRadius: br, padding: 4 }]}>
           <TouchableOpacity
-            style={[styles.tab, isLogin && styles.tabActive]}
+            style={[
+              styles.tab,
+              { borderRadius: br - 4 },
+              isLogin && { backgroundColor: theme.cardBg, shadowColor: theme.shadow }
+            ]}
             onPress={() => setIsLogin(true)}
-            activeOpacity={0.7}
+            activeOpacity={1}
           >
-            <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>Login</Text>
+            <Text style={[styles.tabText, { color: theme.textSecondary }, isLogin && { color: theme.primary, fontWeight: '700' }]}>
+              {t('loginTab')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, !isLogin && styles.tabActive]}
+            style={[
+              styles.tab,
+              { borderRadius: br - 4 },
+              !isLogin && { backgroundColor: theme.cardBg, shadowColor: theme.shadow }
+            ]}
             onPress={() => setIsLogin(false)}
-            activeOpacity={0.7}
+            activeOpacity={1}
           >
-            <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>Sign Up</Text>
+            <Text style={[styles.tabText, { color: theme.textSecondary }, !isLogin && { color: theme.primary, fontWeight: '700' }]}>
+              {t('signUpTab')}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.form}>
+        <View style={[styles.formCard, { backgroundColor: theme.cardBg, borderRadius: brLarge, shadowColor: theme.shadow }]}>
+          <View style={styles.form}>
 
-          {/* YENİ: Yan yana duran Name ve Surname kutuları */}
-          {!isLogin && (
-            <View style={styles.nameRow}>
+            {!isLogin && (
+              <View style={styles.nameRow}>
+                <TextInput
+                  style={[styles.input, styles.halfInput, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+                  placeholder={t('namePlaceholder')}
+                  placeholderTextColor={theme.textSecondary}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+                <TextInput
+                  style={[styles.input, styles.halfInput, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+                  placeholder={t('surnamePlaceholder')}
+                  placeholderTextColor={theme.textSecondary}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+              placeholder={t('emailPlaceholder')}
+              placeholderTextColor={theme.textSecondary}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            {/* Şifre + görünürlük */}
+            <View style={[styles.passwordWrap, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40', borderRadius: br }]}>
               <TextInput
-                style={[styles.input, styles.halfInput]}
-                placeholder="Name"
-                placeholderTextColor={COLORS.textMuted}
-                value={firstName}
-                onChangeText={setFirstName}
-                autoCapitalize="words"
-                autoCorrect={false}
+                style={[styles.passwordInput, { color: theme.textPrimary }]}
+                placeholder={t('passwordPlaceholder')}
+                placeholderTextColor={theme.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
               />
-              <TextInput
-                style={[styles.input, styles.halfInput]}
-                placeholder="Surname"
-                placeholderTextColor={COLORS.textMuted}
-                value={lastName}
-                onChangeText={setLastName}
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
+              <TouchableOpacity
+                style={styles.eyeButton}
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Icon name={showPassword ? 'eye-off' : 'eye'} size={22} color={theme.textSecondary} />
+              </TouchableOpacity>
             </View>
-          )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor={COLORS.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={COLORS.textMuted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          {isLogin ? (
-            <>
-              <TouchableOpacity style={styles.forgotPassword} onPress={() => {}} activeOpacity={0.7}>
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryButton} onPress={handleLogin} activeOpacity={0.8}>
-                <Text style={styles.primaryButtonText}>Login</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor={COLORS.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
-              <TouchableOpacity style={styles.primaryButton} onPress={handleSignUp} activeOpacity={0.8}>
-                <Text style={styles.primaryButtonText}>Sign Up</Text>
-              </TouchableOpacity>
-            </>
-          )}
+            {isLogin ? (
+              <>
+                <TouchableOpacity style={styles.forgotPassword} onPress={() => {}} activeOpacity={0.7}>
+                  <Text style={[styles.forgotPasswordText, { color: theme.primaryLight }]}>{t('forgotPassword')}</Text>
+                </TouchableOpacity>
+                <Pressable
+                  onPress={handleLogin}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    styles.primaryButtonElevated,
+                    {
+                      backgroundColor: theme.primary,
+                      borderRadius: br,
+                      shadowColor: theme.shadowStrong || theme.primary,
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}
+                >
+                  <Icon name="log-in" size={22} color="#FFFFFF" />
+                  <Text style={styles.primaryButtonText}>{t('loginButton')}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <View style={[styles.passwordWrap, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40', borderRadius: br }]}>
+                  <TextInput
+                    style={[styles.passwordInput, { color: theme.textPrimary }]}
+                    placeholder={t('confirmPasswordPlaceholder')}
+                    placeholderTextColor={theme.textSecondary}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Icon name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                <Pressable
+                  onPress={handleSignUp}
+                  style={({ pressed }) => [
+                    styles.primaryButton,
+                    styles.primaryButtonElevated,
+                    {
+                      backgroundColor: theme.primary,
+                      borderRadius: br,
+                      shadowColor: theme.shadowStrong || theme.primary,
+                      opacity: pressed ? 0.7 : 1,
+                    },
+                  ]}
+                >
+                  <Icon name="user-plus" size={22} color="#FFFFFF" />
+                  <Text style={styles.primaryButtonText}>{t('signUpButton')}</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -209,29 +281,76 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28, paddingVertical: 40 },
-  logo: { width: 140, height: 140, marginBottom: 32 },
-  tabContainer: { flexDirection: 'row', backgroundColor: COLORS.tabInactive, borderRadius: 14, padding: 4, marginBottom: 28, width: '100%', maxWidth: 320 },
-  tab: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  tabActive: { backgroundColor: COLORS.surface, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: 16, fontWeight: '600', color: COLORS.textMuted },
-  tabTextActive: { color: COLORS.text },
-  form: { width: '100%', maxWidth: 320 },
-
-  /* YENİ STİLLER: Yan yana kutular için */
-  nameRow: {
+  container: { flex: 1 },
+  langRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%'
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 8,
   },
-  halfInput: {
-    width: '48%'
+  langButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
   },
-
-  input: { backgroundColor: COLORS.surface, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 16, fontSize: 16, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border, marginBottom: 14 },
-  forgotPassword: { alignSelf: 'flex-end', marginBottom: 20 },
-  forgotPasswordText: { fontSize: 14, color: COLORS.primaryDark, fontWeight: '500' },
-  primaryButton: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  primaryButtonText: { fontSize: 17, fontWeight: '600', color: COLORS.surface },
+  langButtonText: { fontSize: 15, fontWeight: '700' },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 48,
+  },
+  logoSection: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  logo: { width: 140, height: 140, marginBottom: 10 },
+  appName: { fontSize: 24, fontWeight: '700', letterSpacing: 0.5 },
+  tabContainer: { flexDirection: 'row', width: '100%', maxWidth: 320, marginBottom: 16 },
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  tabText: { fontSize: 16, fontWeight: '600' },
+  formCard: {
+    width: '100%',
+    maxWidth: 320,
+    padding: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  form: { width: '100%' },
+  nameRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', gap: 12, marginBottom: 12 },
+  halfInput: { flex: 1 },
+  input: { borderRadius: 14, paddingHorizontal: 18, paddingVertical: 14, fontSize: 16, borderWidth: 1, marginBottom: 12 },
+  passwordWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, marginBottom: 12, paddingHorizontal: 4 },
+  passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16 },
+  eyeButton: { padding: 10 },
+  forgotPassword: { alignSelf: 'flex-end', marginBottom: 14 },
+  forgotPasswordText: { fontSize: 14, fontWeight: '600' },
+  primaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginTop: 6,
+    gap: 10,
+  },
+  primaryButtonElevated: {
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
 });

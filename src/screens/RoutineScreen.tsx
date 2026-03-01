@@ -13,6 +13,9 @@ import { useLanguage } from '../context/LanguageContext';
 const DEFAULT_MORNING_TIME = '08:00';
 const DEFAULT_EVENING_TIME = '21:00';
 
+const MORNING_TIME_PRESETS = ['06:00', '07:00', '08:00', '08:30', '09:00'];
+const EVENING_TIME_PRESETS = ['19:00', '20:00', '21:00', '22:00', '23:00'];
+
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
@@ -126,6 +129,7 @@ function RoutineCard({
   onNewTaskTimeChange,
   onAddTask,
   defaultTime,
+  timePresets,
   styles,
   theme,
   t,
@@ -142,13 +146,16 @@ function RoutineCard({
   onNewTaskTimeChange: (v: string) => void;
   onAddTask: () => void;
   defaultTime: string;
+  timePresets: string[];
   styles: ReturnType<typeof createRoutineStyles>;
   theme: ReturnType<typeof useTheme>['theme'];
   t: (key: string) => string;
 }) {
+  const [showCustomTime, setShowCustomTime] = useState(false);
   const total = tasks.length;
   const progressPercent = total === 0 ? 0 : Math.round((completedCount / total) * 100);
   const subtitle = `${completedCount}/${total} ${t('completedCount')}`;
+  const displayTime = newTaskTime && isValidTime(newTaskTime) ? newTaskTime : defaultTime;
 
   const handleAdd = useCallback(() => {
     const trimmed = newTaskTitle.trim();
@@ -198,15 +205,6 @@ function RoutineCard({
           onChangeText={onNewTaskTitleChange}
           maxLength={80}
         />
-        <TextInput
-          style={styles.addTaskTimeInput}
-          placeholder={defaultTime}
-          placeholderTextColor={theme.textSecondary}
-          value={newTaskTime}
-          onChangeText={onNewTaskTimeChange}
-          maxLength={5}
-          keyboardType="numbers-and-punctuation"
-        />
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handleAdd}
@@ -215,6 +213,56 @@ function RoutineCard({
           <Text style={styles.addTaskButtonText}>{t('addButton')}</Text>
         </TouchableOpacity>
       </View>
+      <View style={styles.timeChipsRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeChipsContent}>
+          {timePresets.map((preset) => (
+            <TouchableOpacity
+              key={preset}
+              activeOpacity={0.8}
+              onPress={() => { onNewTaskTimeChange(preset); setShowCustomTime(false); }}
+              style={[
+                styles.timeChip,
+                { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40' },
+                displayTime === preset && { backgroundColor: theme.primaryLight ?? theme.primary, borderColor: theme.primary },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.timeChipText,
+                  { color: theme.textSecondary },
+                  displayTime === preset && { color: theme.textPrimary, fontWeight: '700' },
+                ]}
+              >
+                {preset}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setShowCustomTime((v) => !v)}
+            style={[
+              styles.timeChip,
+              { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40' },
+              showCustomTime && { backgroundColor: theme.lightPurple, borderColor: theme.primary },
+            ]}
+          >
+            <Text style={[styles.timeChipText, { color: theme.textSecondary }]}>{t('customTimeLabel')}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+      {showCustomTime && (
+        <View style={styles.customTimeRow}>
+          <TextInput
+            style={[styles.addTaskTimeInput, { backgroundColor: theme.background, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+            placeholder={defaultTime}
+            placeholderTextColor={theme.textSecondary}
+            value={newTaskTime}
+            onChangeText={onNewTaskTimeChange}
+            maxLength={5}
+            keyboardType="numbers-and-punctuation"
+          />
+        </View>
+      )}
 
       <View style={styles.taskList}>
         {tasks.map((task) => (
@@ -263,11 +311,16 @@ function createRoutineStyles(theme: ReturnType<typeof useTheme>['theme']) {
     progressBarTrack: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 18, backgroundColor: theme.lightPurple },
     progressBarFill: { minWidth: 0, backgroundColor: theme.primaryLight, borderRadius: 5 },
     progressBarEmpty: { minWidth: 0, backgroundColor: theme.lightPurple, borderRadius: 5 },
-    addTaskRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '30', paddingBottom: 12 },
+    addTaskRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '30', paddingBottom: 12 },
     addTaskInput: { flex: 1, height: 44, backgroundColor: theme.background, borderRadius: 12, paddingHorizontal: 14, fontSize: 15, color: theme.textPrimary, marginRight: 8 },
-    addTaskTimeInput: { width: 64, height: 44, backgroundColor: theme.background, borderRadius: 12, paddingHorizontal: 8, fontSize: 14, color: theme.textPrimary, textAlign: 'center' as const, marginRight: 8 },
+    addTaskTimeInput: { height: 40, backgroundColor: theme.background, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: theme.textPrimary, textAlign: 'center' as const, borderWidth: 1, minWidth: 80 },
     addTaskButton: { height: 44, justifyContent: 'center', paddingHorizontal: 16, backgroundColor: theme.primary, borderRadius: 12 },
     addTaskButtonText: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF' },
+    timeChipsRow: { marginBottom: 12 },
+    timeChipsContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+    timeChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, marginRight: 8 },
+    timeChipText: { fontSize: 13, fontWeight: '600' as const },
+    customTimeRow: { flexDirection: 'row', marginBottom: 8 },
     taskList: { flexDirection: 'column' },
     taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '30' },
     checkCircle: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
@@ -426,6 +479,7 @@ export default function RoutineScreen() {
           onNewTaskTimeChange={setNewMorningTime}
           onAddTask={addMorningTask}
           defaultTime={DEFAULT_MORNING_TIME}
+          timePresets={MORNING_TIME_PRESETS}
           styles={styles}
           theme={theme}
           t={t}
@@ -444,6 +498,7 @@ export default function RoutineScreen() {
           onNewTaskTimeChange={setNewEveningTime}
           onAddTask={addEveningTask}
           defaultTime={DEFAULT_EVENING_TIME}
+          timePresets={EVENING_TIME_PRESETS}
           styles={styles}
           theme={theme}
           t={t}
