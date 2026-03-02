@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  Modal,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -15,7 +18,7 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
   const { theme } = useTheme();
   const { t } = useLanguage();
   const { profile } = useUserProfile();
-  const displayName = profile.displayName || 'Nisa';
+  const displayName = profile.displayName ;
 
   type InfoType = 'drySkin' | 'waterEffect' | 'routineDiff';
   const [selectedInfo, setSelectedInfo] = useState<InfoType | null>(null);
@@ -46,10 +49,38 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
     }
   };
 
-  const waterProgress = 0.65;
   const waterTarget = 2000;
-  const waterCurrent = Math.round(waterTarget * waterProgress);
+  const [waterHistory, setWaterHistory] = useState<number[]>([]);
+  const waterCurrent = waterHistory.reduce((a, b) => a + b, 0);
+  const [customMlInput, setCustomMlInput] = useState('');
+  const waterProgress = Math.min(waterCurrent / waterTarget, 1);
   const waterTargetLabel = t('waterTargetMl');
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [hasCelebrated, setHasCelebrated] = useState(false);
+  const [showCustomWater, setShowCustomWater] = useState(false);
+
+  useEffect(() => {
+    if (waterCurrent >= waterTarget && !hasCelebrated) {
+      setShowCelebration(true);
+      setHasCelebrated(true);
+    }
+  }, [waterCurrent, waterTarget, hasCelebrated]);
+
+  const addWater = (ml: number) => {
+    setWaterHistory((prev) => [...prev, ml]);
+  };
+
+  const undoWater = () => {
+    setWaterHistory((prev) => prev.slice(0, -1));
+  };
+
+  const addCustomWater = () => {
+    const num = parseInt(customMlInput.replace(/\D/g, ''), 10);
+    if (!isNaN(num) && num > 0) {
+      addWater(num);
+      setCustomMlInput('');
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -60,15 +91,23 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
       >
         <View style={styles.greetingContainer}>
           <View style={styles.greetingTextContainer}>
-            <Text style={[styles.greetingText, { color: theme.textPrimary }]}>{t('hello')} 👋</Text>
-            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>{t('welcome')}, {displayName}</Text>
+            <Text style={[styles.greetingText, { color: theme.textPrimary }]}>
+              Hoş Geldin, {displayName}
+            </Text>
+            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>
+              {t('skinDiscover')}
+            </Text>
           </View>
           <TouchableOpacity
             style={[styles.avatarContainer, { backgroundColor: theme.primary, shadowColor: theme.shadow }]}
             onPress={() => navigation.getParent?.()?.navigate('ProfileScreen')}
             activeOpacity={0.8}
           >
-            <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+            {profile.profileImageUri ? (
+              <Image source={{ uri: profile.profileImageUri }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -105,6 +144,59 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
                 ))}
               </View>
             </View>
+            <Text style={[styles.addWaterLabel, { color: theme.textSecondary }]}>{t('addWater')}</Text>
+            <View style={styles.waterButtonsRow}>
+              <TouchableOpacity
+                style={[styles.waterAddButton, { backgroundColor: theme.primary }]}
+                onPress={() => addWater(200)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.waterAddButtonText}>{t('add200ml')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.waterAddButton, { backgroundColor: theme.primaryLight ?? theme.primary }]}
+                onPress={() => addWater(500)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.waterAddButtonText}>{t('add500ml')}</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={[styles.customWaterToggle, { borderColor: theme.textSecondary + '40' }]}
+              onPress={() => setShowCustomWater((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.customWaterToggleText, { color: theme.textSecondary }]}>{t('customAmountLabel')}</Text>
+              <Icon name={showCustomWater ? 'chevron-up' : 'chevron-down'} size={20} color={theme.textSecondary} />
+            </TouchableOpacity>
+            {showCustomWater && (
+              <View style={styles.customWaterRow}>
+                <TextInput
+                  style={[styles.customWaterInput, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+                  placeholder={t('customMlPlaceholder')}
+                  placeholderTextColor={theme.textSecondary}
+                  value={customMlInput}
+                  onChangeText={setCustomMlInput}
+                  keyboardType="number-pad"
+                />
+                <TouchableOpacity
+                  style={[styles.customWaterAddBtn, { backgroundColor: theme.primary }]}
+                  onPress={addCustomWater}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.waterAddButtonText}>{t('addWaterButton')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {waterHistory.length > 0 && (
+              <TouchableOpacity
+                style={[styles.undoButton, { borderColor: theme.primary }]}
+                onPress={undoWater}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.undoButtonText, { color: theme.primary }]}>{t('undoWater')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -191,6 +283,22 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
           </View>
         </View>
       )}
+
+      <Modal visible={showCelebration} transparent animationType="fade">
+        <View style={[styles.celebrationOverlay, { backgroundColor: theme.background + 'E6' }]}>
+          <View style={[styles.celebrationCard, { backgroundColor: theme.cardBg }]}>
+            <Text style={[styles.celebrationTitle, { color: theme.primary }]}>{t('waterCelebrationTitle')}</Text>
+            <Text style={[styles.celebrationMessage, { color: theme.textSecondary }]}>{t('waterCelebrationMessage')}</Text>
+            <TouchableOpacity
+              style={[styles.celebrationButton, { backgroundColor: theme.primary }]}
+              onPress={() => setShowCelebration(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.celebrationButtonText}>{t('ok')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -203,7 +311,23 @@ const styles = StyleSheet.create({
   greetingTextContainer: { flex: 1 },
   greetingText: { fontSize: 24, fontWeight: '700', marginBottom: 4 },
   welcomeText: { fontSize: 16, fontWeight: '500' },
-  avatarContainer: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3 },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
   avatarText: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
   card: { borderRadius: 16, padding: 20, marginBottom: 16, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 },
   cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
@@ -217,6 +341,17 @@ const styles = StyleSheet.create({
   flameIconsContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   flameIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   flameIconText: { fontSize: 16 },
+  addWaterLabel: { fontSize: 13, fontWeight: '600', marginTop: 16, marginBottom: 8 },
+  waterButtonsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  waterAddButton: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  waterAddButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  customWaterToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, marginTop: 8 },
+  customWaterToggleText: { fontSize: 14 },
+  customWaterRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  customWaterInput: { flex: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, borderWidth: 1 },
+  customWaterAddBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
+  undoButton: { alignSelf: 'flex-start', marginTop: 12, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 2 },
+  undoButtonText: { fontSize: 14, fontWeight: '700' },
   searchInput: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8, borderWidth: 1 },
   searchSubtitle: { fontSize: 13, fontStyle: 'italic' },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginTop: 8, marginBottom: 16 },
@@ -270,4 +405,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
+  celebrationOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  celebrationCard: {
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    maxWidth: 320,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  celebrationTitle: { fontSize: 24, fontWeight: '800', marginBottom: 12 },
+  celebrationMessage: { fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
+  celebrationButton: { paddingVertical: 14, paddingHorizontal: 32, borderRadius: 14 },
+  celebrationButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 });
