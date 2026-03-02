@@ -16,6 +16,7 @@ import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 // 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
 import AIFab from '../components/AIFab';
@@ -40,6 +41,7 @@ export type RootStackParamList = {
   PrivacyPolicyScreen: undefined;
   TermsOfUseScreen: undefined;
   LoginScreen: undefined;
+  ResetPasswordScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,12 +62,18 @@ export default function AppNavigator() {
         initialRouteName="LoginScreen"
         screenOptions={{ headerShown: false }}
       >
+      <Stack.Screen
+            name="ResetPasswordScreen"
+            component={ResetPasswordScreen}
+            options={{ headerShown: true, title: 'Yeni Şifre Oluştur' }}
+          />
         <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
         <Stack.Screen
           name="ProfileScreen"
           component={ProfileScreen}
           options={{ headerShown: false }}
         />
+
         <Stack.Screen
           name="ChatDetailScreen"
           component={ChatDetailScreen}
