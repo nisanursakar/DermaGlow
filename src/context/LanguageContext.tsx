@@ -31,7 +31,7 @@ const translations: Record<Language, Record<string, string>> = {
     selectLanguage: 'Dil Seçin',
     helpCenterTitle: 'Yardım Merkezi',
     helpCenterContent:
-      'DermaGlow Yardım Merkezi\'ne hoş geldiniz.\n\nBurada uygulamayı nasıl kullanacağınız, analiz ekranlarının ne anlama geldiği ve sık karşılaşılan sorunlar hakkında özet bilgiler bulabilirsiniz.\n\nSık sorulan sorular:\n• Cilt analizi nasıl yapılır?\n  - Ana ekrandan Kamera sekmesine geçin, \"Cilt Analizi\" modunu seçin ve yönergeleri takip edin.\n• Rutinime nasıl görev eklerim?\n  - Rutin sekmesine gidip \"Yeni görev ekle\" alanına adını yazın ve Kaydet\'e dokunun.\n• Son analizlerimi nereden görebilirim?\n  - Kamera sekmesindeki \"Analiz Geçmişi\" bölümünden ulaşabilirsiniz.\n\nDaha detaylı destek için İletişim ekranından bize ulaşabilirsiniz.',
+      'DermaGlow Yardım Merkezi\'ne hoş geldiniz.\n\nBurada uygulamayı nasıl kullanacağınız, analiz ekranlarının ne anlama geldiği ve sık karşılaşılan sorunlar hakkında özet bilgiler bulabilirsiniz.\n\nSık sorulan sorular:\n• Cilt analizi nasıl yapılır?\n  - Ana ekrandan Kamera sekmesine geçin, "Cilt Analizi" modunu seçin ve yönergeleri takip edin.\n• Rutinime nasıl görev eklerim?\n  - Rutin sekmesine gidip "Yeni görev ekle" alanına adını yazın ve Kaydet\'e dokunun.\n• Son analizlerimi nereden görebilirim?\n  - Kamera sekmesindeki "Analiz Geçmişi" bölümünden ulaşabilirsiniz.\n\nDaha detaylı destek için İletişim ekranından bize ulaşabilirsiniz.',
     aboutUsTitle: 'Hakkımızda',
     aboutUsContent:
       'DermaGlow, cilt ve saç derisi sağlığınızı daha bilinçli takip edebilmeniz için tasarlanmış bir kişisel bakım asistanıdır.\n\nAmacımız, karmaşık dermatoloji terimlerini sadeleştirerek herkes için anlaşılır hale getirmek ve günlük bakım rutinlerinizi sürdürülebilir bir alışkanlığa dönüştürmektir.\n\nDermaGlow ile:\n• Cilt ve saç derisi analizi yapabilir,\n• Günlük bakım rutininizi planlayabilir,\n• Zaman içindeki gelişiminizi takip edebilirsiniz.\n\nUygulama, tıbbi tanı koymaz ve doktor muayenesinin yerini almaz. Her zaman cilt sağlığınızla ilgili önemli kararlar için bir uzmana danışmanızı öneririz.',
@@ -44,17 +44,14 @@ const translations: Record<Language, Record<string, string>> = {
     termsTitle: 'Kullanım Koşulları',
     termsContent:
       'DermaGlow uygulamasını kullanarak aşağıdaki temel kullanım koşullarını kabul etmiş olursunuz.\n\n1. Hizmetin niteliği\nDermaGlow, kişisel bakım takibi ve bilgilendirme amacıyla tasarlanmış bir mobil uygulamadır. Tıbbi tanı koymaz ve doktor tavsiyesinin yerine geçmez.\n\n2. Sorumluluk reddi\nUygulama içerisindeki öneriler genel bilgilendirme amaçlıdır. Cilt problemleriniz için daima bir dermatolog veya sağlık profesyoneline danışmalısınız.\n\n3. Kullanıcı yükümlülükleri\n• Hesap bilgilerinizin gizliliğinden siz sorumlusunuz.\n• Uygulamayı mevzuata aykırı veya kötüye kullanım amaçlı kullanamazsınız.\n\n4. Değişiklikler\nKullanım koşulları zaman zaman güncellenebilir. Önemli değişiklikler olduğunda uygulama içinden sizi bilgilendirmeye çalışırız.\n\nUygulamayı kullanmaya devam etmeniz, güncel koşulları kabul ettiğiniz anlamına gelir.',
-    // Tabs
     tabHome: 'Ana Sayfa',
     tabRoutine: 'Rutin',
     tabCamera: 'Kamera',
     tabChat: 'Chat',
     tabMore: 'Daha Fazla',
-    // Home
     hello: 'Merhaba',
     welcome: 'Hoş geldin',
     welcomeUser: 'Hoş geldin, Nisa',
-    // Profile
     profileTitle: 'Profil & Ayarlar',
     personalInfo: 'Kişisel Bilgiler',
     nameSurname: 'Ad Soyad',
@@ -94,14 +91,12 @@ const translations: Record<Language, Record<string, string>> = {
     routineDiffSub: 'Sabah rutini cildi korumaya, akşam rutini ise temizlemeye ve onarmaya odaklanır. Her ikisi de cilt sağlığı için önemlidir.',
     routineDiffDetail:
       'Sabah ve akşam rutinleri aynı ürünlerden oluşsa bile amaçları farklıdır.\n\nSabah rutini odağı:\n• Gece boyunca biriken fazla sebumu nazikçe arındırmak,\n• Cildi güne hazırlamak ve çevresel faktörlere (güneş, kirlilik vb.) karşı korumak,\n• Güneş koruyucu ile cilt bariyerini desteklemek.\n\nAkşam rutini odağı:\n• Makyaj, güneş kremi ve gün boyu biriken kirleri tamamen temizlemek,\n• Cilt bariyerini onarmaya yardımcı aktif içerikleri (nemlendiriciler, bariyer destekleyiciler vb.) uygulamak,\n• Hücre yenilenmesinin en aktif olduğu gece saatlerinde cilde bakım yapmak.\n\nİpucu: Rutinini cilt tipine ve mevsime göre hafifçe güncellemek, uzun vadede daha dengeli bir cilt görünümü sağlar.',
-    // Routine
     dailyRoutine: 'Günlük Rutin',
     morningRoutine: 'Sabah Rutini',
     eveningRoutine: 'Akşam Rutini',
     completedCount: 'tamamlandı',
     addTaskPlaceholder: 'Yeni görev ekle...',
     addButton: 'Ekle',
-    // Camera
     skinAnalysis: 'Cilt Analizi',
     cameraSubtitle: 'Cildinizin ya da saç derinizin fotoğrafını çekin ve gelişiminizi takip edin',
     takePhoto: 'Fotoğraf Çek',
@@ -122,11 +117,12 @@ const translations: Record<Language, Record<string, string>> = {
     scalpTip1: 'Saçı net ayırın',
     scalpTip2: 'Saç derisi görünür olsun',
     scalpTip3: 'Parlak ışık kullanın',
+    skinGuidance: 'Yüzünüzü çerçevenin ortasına yerleştirin',
+    scalpGuidance: 'Saç ayrımını çerçevenin ortasına getirin',
     ok: 'Tamam',
     cancel: 'İptal',
     later: 'Daha Sonra',
     settings: 'Ayarlar',
-    // Chat
     searchUsersTopics: 'Kullanıcı veya konu ara...',
     community: 'Topluluk',
     comment: 'Yorum yap',
@@ -135,7 +131,6 @@ const translations: Record<Language, Record<string, string>> = {
     addPhoto: 'Fotoğraf Ekle',
     postPlaceholder: 'Ne paylaşmak istersin?',
     sendPost: 'Paylaş',
-    // AnalysisDetail
     skinScore: 'Cilt Skoru',
     scalpScore: 'Saç Derisi Skoru',
     weekly: 'Haftalık',
@@ -144,10 +139,20 @@ const translations: Record<Language, Record<string, string>> = {
     aiCommentDecreased: 'Nem seviyesi düşüş göstermiş olabilir. Rutin gözden geçirilmeli.',
     aiCommentStable: 'Cilt skorunuz stabil. Mevcut rutininize devam edebilirsiniz.',
     analysisDetailTitle: 'Analiz Detayı',
-    // ChatDetail
     typeMessage: 'Mesaj yazın...',
     send: 'Gönder',
     assistantWelcome: 'Merhaba! Ben DermaGlow Asistan. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin.',
+
+    // --- YENİ EKLENEN YAPAY ZEKA ÇEVİRİLERİ (TÜRKÇE) ---
+    aiAssistantName: 'DermaGlow Asistan',
+    aiWelcomeMessage: 'Merhaba! Ben DermaGlow Asistan. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin. 🤖',
+    aiReadingRoutine: '(AI Simülasyonu)\n\nSenin için şu rutin bilgisini okudum:',
+    aiReadyToAnswer: 'Buna dayanarak sorunu cevaplayabilirim!',
+    typing: 'Yazıyor...',
+    online: 'Çevrimiçi',
+    userWelcome1: 'Merhaba! Cilt bakımı hakkında konuşmak ister misin?',
+    userWelcome2: 'Tabii ki! Hangi ürünleri kullanıyorsun?',
+    userReplySimulation: 'Teşekkürler! Bu bilgi çok yardımcı oldu.',
   },
   en: {
     settingsTitle: 'Settings & More',
@@ -257,6 +262,8 @@ const translations: Record<Language, Record<string, string>> = {
     scalpTip1: 'Part hair clearly',
     scalpTip2: 'Keep scalp visible',
     scalpTip3: 'Use bright lighting',
+    skinGuidance: 'Center your face in the frame',
+    scalpGuidance: 'Center your hair parting in the frame',
     ok: 'OK',
     cancel: 'Cancel',
     later: 'Later',
@@ -280,6 +287,17 @@ const translations: Record<Language, Record<string, string>> = {
     typeMessage: 'Type a message...',
     send: 'Send',
     assistantWelcome: 'Hello! I\'m DermaGlow Assistant. Ask me anything about your skincare routine.',
+
+    // --- YENİ EKLENEN YAPAY ZEKA ÇEVİRİLERİ (İNGİLİZCE) ---
+    aiAssistantName: 'DermaGlow Assistant',
+    aiWelcomeMessage: 'Hello! I am DermaGlow Assistant. You can ask me anything about your skincare routine. 🤖',
+    aiReadingRoutine: '(AI Simulation)\n\nI have read the following routine information for you:',
+    aiReadyToAnswer: 'Based on this, I can answer your question!',
+    typing: 'Typing...',
+    online: 'Online',
+    userWelcome1: 'Hello! Would you like to talk about skincare?',
+    userWelcome2: 'Sure! What products are you using?',
+    userReplySimulation: 'Thanks! This information was very helpful.',
   },
 };
 

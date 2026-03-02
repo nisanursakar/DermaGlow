@@ -111,17 +111,6 @@ const INITIAL_POSTS: CommunityPost[] = [
 ];
 
 const MESSAGES: MessageItem[] = [
-  // YAPAY ZEKA ASİSTANI
-  {
-    id: 'ai_bot',
-    userId: 'bot_01',
-    userName: 'DermaGlow Asistan',
-    lastMessage: 'Rutinini inceledim, nasıl yardımcı olabilirim? 🤖',
-    time: 'Şimdi',
-    unreadCount: 1,
-    isOnline: true,
-    skinType: 'Yapay Zeka',
-  },
   {
     id: '1',
     userId: 'user1',
