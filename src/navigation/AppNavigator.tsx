@@ -1,3 +1,5 @@
+// src/navigation/AppNavigator.tsx
+
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -14,6 +16,9 @@ import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+
+// 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
+import AIFab from '../components/AIFab';
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -50,7 +55,8 @@ export default function AppNavigator() {
   };
 
   return (
-    <Stack.Navigator
+    <>
+      <Stack.Navigator
         initialRouteName="LoginScreen"
         screenOptions={{ headerShown: false }}
       >
@@ -106,5 +112,9 @@ export default function AppNavigator() {
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
+
+      {/* 2. ASİSTAN BUTONUNU NAVİGASYONUN YANINA EKLİYORUZ */}
+      <AIFab />
+    </>
   );
 }
