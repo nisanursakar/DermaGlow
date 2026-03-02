@@ -34,6 +34,22 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+
+const handleForgotPassword = async () => {
+  if (!email) {
+    alert("Önce email gir.");
+    return;
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+
+  if (error) {
+    alert(error.message);
+  } else {
+    alert("Mail gönderildi.");
+  }
+};
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter your email and password.');
@@ -216,8 +232,13 @@ export default function LoginScreen() {
 
             {isLogin ? (
               <>
-                <TouchableOpacity style={styles.forgotPassword} onPress={() => {}} activeOpacity={0.7}>
-                  <Text style={[styles.forgotPasswordText, { color: theme.primaryLight }]}>{t('forgotPassword')}</Text>
+                <TouchableOpacity   style={styles.forgotPassword}
+                                    onPress={handleForgotPassword}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Text style={[styles.forgotPasswordText, { color: theme.primaryLight }]}>
+                                      {t('forgotPassword')}
+                                    </Text>
                 </TouchableOpacity>
                 <Pressable
                   onPress={handleLogin}
