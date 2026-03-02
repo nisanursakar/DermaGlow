@@ -1,38 +1,55 @@
+// src/components/OverlayGuide.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { theme } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import type { CameraMode } from '../constants/theme';
 
 type OverlayGuideProps = {
   mode: CameraMode;
 };
 
-const SKIN_TIPS = [
-  'Doğal ışık kullanın',
-  'Yüzünüz tam karşıdan görünsün',
-  'Makyajsız çekim yapın',
-];
-
-const SCALP_TIPS = [
-  'Saç ayrımını net gösterin',
-  'Saç derisi görünür olsun',
-  'Parlak / iyi ışık kullanın',
-];
-
-const SKIN_GUIDANCE = 'Yüzünüzü çerçevenin ortasına yerleştirin';
-const SCALP_GUIDANCE = 'Saç ayrımını çerçevenin ortasına getirin';
-
 export default function OverlayGuide({ mode }: OverlayGuideProps) {
+  const { theme } = useTheme();
+  const { t } = useLanguage();
+
   const isSkin = mode === 'skin';
-  const tips = isSkin ? SKIN_TIPS : SCALP_TIPS;
-  const guidance = isSkin ? SKIN_GUIDANCE : SCALP_GUIDANCE;
+
+  // İpuçlarını LanguageContext üzerinden (t fonksiyonu ile) çekiyoruz
+  const tips = isSkin
+    ? [t('skinTip1'), t('skinTip2'), t('skinTip3')]
+    : [t('scalpTip1'), t('scalpTip2'), t('scalpTip3')];
+
+  // Eğer çeviri dosyasında bu kelimeleri bulamazsa, varsayılan Türkçe metinleri gösterir (Uygulamanın çökmesini önler)
+  const skinGuidance = t('skinGuidance') === 'skinGuidance'
+    ? 'Yüzünüzü çerçevenin ortasına yerleştirin'
+    : t('skinGuidance');
+
+  const scalpGuidance = t('scalpGuidance') === 'scalpGuidance'
+    ? 'Saç ayrımını çerçevenin ortasına getirin'
+    : t('scalpGuidance');
+
+  const guidance = isSkin ? skinGuidance : scalpGuidance;
 
   return (
-    <View style={styles.floatingCard} pointerEvents="none">
-      <Text style={styles.guidanceText}>✔ {guidance}</Text>
+    <View
+      style={[
+        styles.floatingCard,
+        {
+          // Karanlık moda tam uyumlu dinamik renkler
+          backgroundColor: theme.cardBackground || theme.cardBg || 'rgba(255,255,255,0.95)',
+          borderColor: theme.lightPurple || 'rgba(75,59,112,0.15)',
+          shadowColor: theme.shadowStrong || '#000',
+          borderRadius: theme.borderRadius || 16
+        }
+      ]}
+      pointerEvents="none"
+    >
+      <Text style={[styles.guidanceText, { color: theme.primary }]}>✔ {guidance}</Text>
       <View style={styles.tipsList}>
         {tips.map((tip, i) => (
-          <Text key={i} style={styles.tipText}>• {tip}</Text>
+          <Text key={i} style={[styles.tipText, { color: theme.textSecondary }]}>• {tip}</Text>
         ))}
       </View>
     </View>
@@ -45,12 +62,8 @@ const styles = StyleSheet.create({
     bottom: 12,
     left: 16,
     right: 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: theme.borderRadius,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(75,59,112,0.15)',
-    shadowColor: theme.shadowStrong,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -59,7 +72,6 @@ const styles = StyleSheet.create({
   guidanceText: {
     fontSize: 13,
     fontWeight: '700',
-    color: theme.primary,
     marginBottom: 8,
   },
   tipsList: {
@@ -67,7 +79,6 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 12,
-    color: theme.textSecondary,
     marginBottom: 2,
   },
 });
