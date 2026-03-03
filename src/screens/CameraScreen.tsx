@@ -27,17 +27,29 @@ import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'CameraScreen'>;
 
-const INITIAL_HISTORY: HistoryItem[] = [
-  { id: '1', type: 'skin', date: '20 Ocak 2026', score: 85, improvement: 5 },
-  { id: '2', type: 'scalp', date: '13 Ocak 2026', score: 78, improvement: 3 },
-  { id: '3', type: 'skin', date: '6 Ocak 2026', score: 80, improvement: 8 },
-];
+export interface ExtendedHistoryItem extends HistoryItem {
+  imageUri?: string;
+}
+
+// Sahte verileri tamamen sildik, artık ilk açılışta liste tertemiz (boş) gelecek
+const INITIAL_HISTORY: ExtendedHistoryItem[] = [];
+
+// Tarihi Türkçe formatta almak için yardımcı fonksiyon
+const getTodayDateString = () => {
+  const today = new Date();
+  const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
+};
 
 export default function CameraScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [mode, setMode] = useState<CameraMode>('skin');
+
+  const [history, setHistory] = useState<ExtendedHistoryItem[]>(INITIAL_HISTORY);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
@@ -58,12 +70,8 @@ export default function CameraScreen() {
     }
   }, [t]);
 
-  const [history] = useState<HistoryItem[]>(INITIAL_HISTORY);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
-
   const navigateToAnalysis = useCallback(
-    (params: { analysisId: string; type: 'skin' | 'scalp'; score: number; previousScore?: number }) => {
+    (params: { analysisId: string; type: 'skin' | 'scalp'; score: number; previousScore?: number; imageUri?: string }) => {
       navigation.getParent?.()?.navigate('AnalysisDetailScreen', params);
     },
     [navigation]
@@ -93,11 +101,28 @@ export default function CameraScreen() {
         setAnalyzing(false);
         return;
       }
-      navigateToAnalysis({
-        analysisId: `new-${Date.now()}`,
+
+      const photoUri = result.assets[0].uri;
+      const newScore = 70 + Math.floor(Math.random() * 20);
+      const previousScore = history.length > 0 ? history[0].score : 70;
+
+      const newItem: ExtendedHistoryItem = {
+        id: `new-${Date.now()}`,
         type: mode,
-        score: 70 + Math.floor(Math.random() * 20),
-        previousScore: history[0]?.score,
+        date: getTodayDateString(),
+        score: newScore,
+        improvement: newScore - previousScore,
+        imageUri: photoUri,
+      };
+
+      setHistory(prev => [newItem, ...prev]);
+
+      navigateToAnalysis({
+        analysisId: newItem.id,
+        type: newItem.type,
+        score: newItem.score,
+        previousScore: previousScore,
+        imageUri: photoUri,
       });
     } catch (e) {
       Alert.alert(t('cameraPermissionTitle'), 'Fotoğraf çekilemedi.');
@@ -117,13 +142,30 @@ export default function CameraScreen() {
         setAnalyzing(false);
         return;
       }
+
+      const selectedImageUri = result.assets[0].uri;
+      const newScore = 72 + Math.floor(Math.random() * 18);
+      const previousScore = history.length > 0 ? history[0].score : 70;
+
+      const newItem: ExtendedHistoryItem = {
+        id: `gallery-${Date.now()}`,
+        type: mode,
+        date: getTodayDateString(),
+        score: newScore,
+        improvement: newScore - previousScore,
+        imageUri: selectedImageUri,
+      };
+
+      setHistory(prev => [newItem, ...prev]);
+
       setTimeout(() => {
         setAnalyzing(false);
         navigateToAnalysis({
-          analysisId: `gallery-${Date.now()}`,
-          type: mode,
-          score: 72 + Math.floor(Math.random() * 18),
-          previousScore: history[0]?.score,
+          analysisId: newItem.id,
+          type: newItem.type,
+          score: newItem.score,
+          previousScore: previousScore,
+          imageUri: selectedImageUri,
         });
       }, 600);
     } catch (e) {
@@ -133,12 +175,13 @@ export default function CameraScreen() {
   }, [mode, history, navigateToAnalysis, t]);
 
   const handleHistoryItemPress = useCallback(
-    (item: HistoryItem) => {
+    (item: ExtendedHistoryItem) => {
       navigation.getParent?.()?.navigate('AnalysisDetailScreen', {
         analysisId: item.id,
         type: item.type,
         score: item.score,
-        previousScore: item.score - item.improvement,
+        previousScore: item.score - (item.improvement || 0),
+        imageUri: item.imageUri,
       });
     },
     [navigation]
@@ -171,6 +214,11 @@ export default function CameraScreen() {
         historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
         historyTitle: { flex: 1, fontSize: 16, fontWeight: '700' as const, color: theme.primary, marginLeft: 8 },
         seeAllText: { fontSize: 13, fontWeight: '600' as const, color: theme.secondary },
+
+        // Yeni eklenen Boş Durum (Empty State) tasarımları
+        emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 16 },
+        emptyStateText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center' as const, lineHeight: 22 },
+
         galleryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginTop: 20, paddingVertical: 14, backgroundColor: theme.cardBg, borderRadius: theme.borderRadius, borderWidth: 1, borderColor: theme.lightPurple },
         galleryButtonText: { fontSize: 14, color: theme.textSecondary, marginLeft: 8 },
         loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
@@ -246,13 +294,28 @@ export default function CameraScreen() {
           <View style={styles.historyHeader}>
             <Icon name="image" size={20} color={theme.primary} />
             <Text style={styles.historyTitle}>{t('analysisHistory')}</Text>
-            <TouchableOpacity onPress={handleSeeAllHistory}>
-              <Text style={styles.seeAllText}>{t('seeAll')}</Text>
-            </TouchableOpacity>
+
+            {/* Eğer geçmiş boşsa "Tümünü Gör" butonunu saklıyoruz */}
+            {history.length > 0 && (
+              <TouchableOpacity onPress={handleSeeAllHistory}>
+                <Text style={styles.seeAllText}>{t('seeAll')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {history.map((item) => (
-            <HistoryCard key={item.id} item={item} onPress={() => handleHistoryItemPress(item)} />
-          ))}
+
+          {/* Akıllı Liste: Boşsa mesaj göster, doluysa kartları göster */}
+          {history.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <Icon name="camera" size={36} color={theme.textSecondary} style={{ opacity: 0.5, marginBottom: 12 }} />
+              <Text style={styles.emptyStateText}>
+                Henüz analiz geçmişin yok.{'\n'}Hadi ilk analiz için hemen bir görsel yükle!
+              </Text>
+            </View>
+          ) : (
+            history.map((item) => (
+              <HistoryCard key={item.id} item={item as HistoryItem} onPress={() => handleHistoryItemPress(item)} />
+            ))
+          )}
         </View>
 
         <TouchableOpacity style={styles.galleryButton} onPress={handleGalleryPick} disabled={analyzing}>
@@ -272,4 +335,3 @@ export default function CameraScreen() {
     </View>
   );
 }
-

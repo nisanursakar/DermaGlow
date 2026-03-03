@@ -9,7 +9,7 @@ export type HistoryItem = {
   date: string;
   score: number;
   improvement: number;
-  thumbnailUri?: string;
+  imageUri?: string; // thumbnailUri yerine CameraScreen ile uyumlu olması için imageUri yaptık
 };
 
 type HistoryCardProps = {
@@ -37,8 +37,8 @@ export default function HistoryCard({ item, onPress }: HistoryCardProps) {
       ]}
     >
       <View style={[styles.thumbnail, { backgroundColor: theme.iconBg }]}>
-        {item.thumbnailUri ? (
-          <Image source={{ uri: item.thumbnailUri }} style={styles.thumbnailImage} />
+        {item.imageUri ? (
+          <Image source={{ uri: item.imageUri }} style={styles.thumbnailImage} />
         ) : (
           <View style={[styles.thumbnailPlaceholder, { backgroundColor: theme.lightPurple }]} />
         )}

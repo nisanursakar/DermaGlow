@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Image, // Image bileşenini import ettik
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
@@ -27,7 +28,9 @@ export default function AnalysisDetailScreen() {
   const route = useRoute<AnalysisDetailRouteProp>();
   const { theme } = useTheme();
   const { t } = useLanguage();
-  const { type, score, previousScore } = route.params;
+
+  // Parametrelerden imageUri'yi de alıyoruz (TypeScript hatasını önlemek için any kullandık, daha sonra AppNavigator'da tipi güncelleyebilirsin)
+  const { type, score, previousScore, imageUri } = route.params as any;
 
   const [dateFilter, setDateFilter] = useState<FilterType>('weekly');
 
@@ -54,7 +57,6 @@ export default function AnalysisDetailScreen() {
   );
 
   const screenWidth = Dimensions.get('window').width - 48;
-
   const scoreLabel = type === 'skin' ? t('skinScore') : t('scalpScore');
 
   return (
@@ -63,6 +65,13 @@ export default function AnalysisDetailScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* Eğer bir resim gönderilmişse, skordan önce en tepede şık bir şekilde gösteriyoruz */}
+      {imageUri && (
+        <View style={[styles.imageContainer, { shadowColor: theme.shadowStrong }]}>
+          <Image source={{ uri: imageUri }} style={styles.analysisImage} />
+        </View>
+      )}
+
       <View style={[styles.scoreCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadowStrong }]}>
         <Text style={[styles.scoreLabel, { color: theme.textSecondary }]}>{scoreLabel}</Text>
         <Text style={[styles.scoreValue, { color: theme.primary }]}>{score}</Text>
@@ -125,6 +134,25 @@ export default function AnalysisDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
+
+  // Resim için eklenen stiller
+  imageContainer: {
+    width: '100%',
+    height: 200, // Görselin boyunu buradan ayarlayabilirsin
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  analysisImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover', // Resmi kutuya sığdırır ve fazlalıkları kırpar
+  },
+
   scoreCard: { borderRadius: 24, padding: 24, alignItems: 'center', marginBottom: 20, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
   scoreLabel: { fontSize: 14, marginBottom: 8 },
   scoreValue: { fontSize: 42, fontWeight: '800' },
