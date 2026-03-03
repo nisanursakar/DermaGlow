@@ -102,19 +102,21 @@ export default function AIFab() {
     })
   ).current;
 
-  if (isHidden) return null;
-
   const botName = t('aiAssistantName') === 'aiAssistantName'
     ? 'DermaGlow Asistan'
     : t('aiAssistantName');
 
+  // Gizliyken null dönmüyoruz; Animated node'lar unmount olursa "animated node does not exist" hatası oluşuyor.
+  // Bunun yerine opacity: 0 ve pointerEvents: 'none' ile görünmez/tıklanmaz tutuyoruz.
   return (
     <Animated.View
       style={[
         styles.container,
         { transform: [{ translateX: pan.x }, { translateY: pan.y }] },
+        isHidden && { opacity: 0 },
       ]}
-      {...panResponder.panHandlers}
+      pointerEvents={isHidden ? 'none' : 'auto'}
+      {...(isHidden ? {} : panResponder.panHandlers)}
     >
       <TouchableOpacity
         activeOpacity={0.9}
@@ -126,10 +128,12 @@ export default function AIFab() {
           }
         ]}
         onPress={() => {
-          navigation.navigate('ChatDetailScreen', {
-            userId: 'bot_01',
-            userName: botName,
-          });
+          if (!isHidden) {
+            navigation.navigate('ChatDetailScreen', {
+              userId: 'bot_01',
+              userName: botName,
+            });
+          }
         }}
       >
         <Text style={[styles.textIcon, { color: theme.primary || '#4B3B70' }]}>AI</Text>

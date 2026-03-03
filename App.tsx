@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Linking } from 'react-native';
 import {
   NavigationContainer,
   getStateFromPath,
@@ -10,6 +11,7 @@ import { RoutineProvider } from './src/context/RoutineContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { UserProfileProvider } from './src/context/UserProfileContext';
+import { supabase } from './supabase';
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['com.dermaglow://'], // Supabase Auth redirect URL (scheme) ile aynı olmalı
@@ -32,7 +34,26 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
+/** Recovery link'teki #access_token ve refresh_token ile Supabase oturumunu kurar. */
+function parseRecoverySessionFromUrl(url: string | null): void {
+  if (!url || !url.includes('reset-password') || !url.includes('#')) return;
+  const hash = url.split('#')[1];
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (access_token && refresh_token) {
+    supabase.auth.setSession({ access_token, refresh_token }).catch(() => {});
+  }
+}
+
 export default function App() {
+  useEffect(() => {
+    Linking.getInitialURL().then(parseRecoverySessionFromUrl);
+    const sub = Linking.addEventListener('url', (event) => parseRecoverySessionFromUrl(event.url));
+    return () => sub.remove();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>

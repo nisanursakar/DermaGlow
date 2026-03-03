@@ -67,7 +67,7 @@ export default function AppNavigator() {
         <Stack.Screen
             name="ResetPasswordScreen"
             component={ResetPasswordScreen}
-            options={{ headerShown: true, title: 'Yeni Şifre Oluştur' }}
+            options={{ headerShown: false }}
           />
         <Stack.Screen
           name="OnboardingSurveyScreen"

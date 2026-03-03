@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   Alert,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
@@ -46,8 +47,40 @@ export default function ProfileScreen() {
   const [skinType, setSkinType] = useState<SkinType>(profile.skinType);
   const [sensitivity, setSensitivity] = useState<SensitivityLevel>(profile.sensitivity);
   const [skinProblems, setSkinProblems] = useState<string[]>(profile.skinProblems);
+  const [birthDate, setBirthDate] = useState(profile.birthDate ?? '');
+  const [height, setHeight] = useState(profile.height ?? '');
+  const [weight, setWeight] = useState(profile.weight ?? '');
   const [skinTypeModalVisible, setSkinTypeModalVisible] = useState(false);
   const [sensitivityModalVisible, setSensitivityModalVisible] = useState(false);
+  const [birthDatePickerVisible, setBirthDatePickerVisible] = useState(false);
+  const now = new Date();
+  const parseBirthDate = (s: string) => {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return { day: 1, month: 1, year: now.getFullYear() - 30 };
+    const [y, m, d] = s.split('-').map(Number);
+    return { day: d, month: m, year: y };
+  };
+  const parsed = parseBirthDate(birthDate);
+  const [pickerDay, setPickerDay] = useState(parsed.day);
+  const [pickerMonth, setPickerMonth] = useState(parsed.month);
+  const [pickerYear, setPickerYear] = useState(parsed.year);
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = Array.from(
+    { length: now.getFullYear() - 1970 + 1 },
+    (_, i) => 1970 + i
+  );
+  const openBirthDatePicker = () => {
+    const p = parseBirthDate(birthDate);
+    setPickerDay(p.day);
+    setPickerMonth(p.month);
+    setPickerYear(p.year);
+    setBirthDatePickerVisible(true);
+  };
+  const confirmBirthDate = () => {
+    const s = `${pickerYear}-${String(pickerMonth).padStart(2, '0')}-${String(pickerDay).padStart(2, '0')}`;
+    setBirthDate(s);
+    setBirthDatePickerVisible(false);
+  };
 
 
   useEffect(() => {
@@ -73,6 +106,12 @@ export default function ProfileScreen() {
             setSkinType((profileData.skin_type as SkinType) || 'combination');
             setSensitivity((profileData.sensitivity as SensitivityLevel) || 'medium');
             setSkinProblems((profileData.skin_problems as string[]) || []);
+            const bd = (profileData as Record<string, unknown>)['birth_date'] as string | undefined;
+            const h = (profileData as Record<string, unknown>)['height_cm'] as string | number | undefined;
+            const w = (profileData as Record<string, unknown>)['weight_kg'] as string | number | undefined;
+            setBirthDate(bd ?? profile.birthDate ?? '');
+            setHeight(h != null ? String(h) : (profile.height ?? ''));
+            setWeight(w != null ? String(w) : (profile.weight ?? ''));
             const imageFromDb = (profileData['profile_image_url'] as string | null) ?? null;
             setProfileImageState(imageFromDb);
             setProfileImage(imageFromDb);
@@ -83,6 +122,9 @@ export default function ProfileScreen() {
               sensitivity: (profileData.sensitivity as SensitivityLevel) || 'medium',
               skinProblems: (profileData.skin_problems as string[]) || [],
               profileImageUri: imageFromDb,
+              birthDate: bd ?? profile.birthDate ?? null,
+              height: h != null ? String(h) : profile.height ?? '',
+              weight: w != null ? String(w) : profile.weight ?? '',
             });
           } else if (user.user_metadata?.full_name) {
             setDisplayName(user.user_metadata.full_name);
@@ -121,17 +163,16 @@ export default function ProfileScreen() {
       // 2. Profiles tablosunu Upsert (Güncelleme/Ekleme) yapıyoruz
       console.log('Supabase Schema Check:', profileImage);
 
+      // Sadece Supabase'de kesin olan sütunları gönder (birth_date, height_cm, weight_kg tabloda yoksa hata verir)
       const userData = {
         id: user.id,
         display_name: displayName.trim(),
         skin_type: skinType,
         sensitivity: sensitivity,
         skin_problems: skinProblems,
-        'profile_image_url': profileImage,
+        profile_image_url: profileImage,
         updated_at: new Date().toISOString(),
       };
-
-      console.log('Saving data:', userData);
 
       const { error } = await supabase
         .from('profiles')
@@ -148,6 +189,9 @@ export default function ProfileScreen() {
         sensitivity,
         skinProblems,
         profileImageUri: profileImage,
+        birthDate: birthDate.trim() || undefined,
+        height: height.trim() || undefined,
+        weight: weight.trim() || undefined,
       });
 
       Alert.alert("Başarılı", "Profil bilgileriniz başarıyla güncellendi!");
@@ -241,6 +285,34 @@ export default function ProfileScreen() {
             <Icon name="chevron-down" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
 
+          <Text style={[styles.label, { color: theme.textSecondary }]}>{t('birthDate')}</Text>
+          <TouchableOpacity
+            style={[styles.picker, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40' }]}
+            onPress={openBirthDatePicker}
+          >
+            <Text style={[styles.pickerText, { color: birthDate ? theme.textPrimary : theme.textSecondary }]}>
+              {birthDate || t('birthDate')}
+            </Text>
+            <Icon name="calendar" size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>{t('height')}</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+            placeholder="170"
+            placeholderTextColor={theme.textSecondary}
+            value={height}
+            onChangeText={setHeight}
+            keyboardType="numeric"
+          />
+          <Text style={[styles.label, { color: theme.textSecondary }]}>{t('weight')}</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
+            placeholder="65"
+            placeholderTextColor={theme.textSecondary}
+            value={weight}
+            onChangeText={setWeight}
+            keyboardType="numeric"
+          />
           <Text style={[styles.label, { color: theme.textSecondary }]}>{t('skinProblems')}</Text>
           <View style={styles.tagsRow}>
             {['Kuru Cilt', 'Akne İzleri', 'Hassasiyet', 'Siyah Nokta'].map((p, i) => {
@@ -297,6 +369,74 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal visible={birthDatePickerVisible} transparent animationType="fade">
+        <View style={[styles.dateOverlay, { backgroundColor: theme.background + 'CC' }]}>
+          <ScrollView
+            contentContainerStyle={styles.dateSheetScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={[styles.dateSheet, { backgroundColor: theme.cardBg }]}>
+              <Text style={[styles.dateSheetTitle, { color: theme.textPrimary }]}>{t('birthDate')}</Text>
+              <View style={[styles.dateColumns, { maxHeight: Dimensions.get('window').height * 0.36 }]}>
+                <ScrollView style={[styles.dateColumn, { width: '14%' }]} showsVerticalScrollIndicator nestedScrollEnabled>
+                  {days.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.dateItem, pickerDay === d && { backgroundColor: theme.primary + '22' }]}
+                      onPress={() => setPickerDay(d)}
+                    >
+                      <Text style={[styles.dateItemText, { color: pickerDay === d ? theme.primary : theme.textPrimary }]}>
+                        {String(d).padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <ScrollView
+                  style={[styles.dateColumn, { width: '70%' }]}
+                  contentContainerStyle={{ width: '100%' }}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                >
+                  {months.map((m) => (
+                    <TouchableOpacity
+                      key={m}
+                      style={[styles.dateItem, pickerMonth === m && { backgroundColor: theme.primary + '22' }]}
+                      onPress={() => setPickerMonth(m)}
+                    >
+                      <Text style={[styles.dateItemText, { color: pickerMonth === m ? theme.primary : theme.textPrimary }]}>
+                        {t(`onb_month_${m}`)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <ScrollView style={[styles.dateColumn, { width: '16%' }]} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                  {years.map((y) => (
+                    <TouchableOpacity
+                      key={y}
+                      style={[styles.dateItem, pickerYear === y && { backgroundColor: theme.primary + '22' }]}
+                      onPress={() => setPickerYear(y)}
+                    >
+                      <Text style={[styles.dateItemText, { color: pickerYear === y ? theme.primary : theme.textPrimary }]}>
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={styles.dateButtonsRow}>
+                <TouchableOpacity style={styles.dateSecondaryBtn} onPress={() => setBirthDatePickerVisible(false)}>
+                  <Text style={[styles.dateSecondaryText, { color: theme.textSecondary }]}>{t('cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.datePrimaryBtn, { backgroundColor: theme.primary }]} onPress={confirmBirthDate}>
+                  <Text style={styles.datePrimaryText}>{t('save')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -331,4 +471,28 @@ const styles = StyleSheet.create({
   modalContent: { borderRadius: 16, padding: 8 },
   modalOption: { paddingVertical: 16, paddingHorizontal: 20, borderRadius: 12 },
   modalOptionText: { fontSize: 16 },
+  dateOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateSheetScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 16 },
+  dateSheet: {
+    width: '98%',
+    maxWidth: 600,
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  dateSheetTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  dateColumns: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  dateColumn: { flex: 1, minHeight: 200 },
+  dateItem: { paddingVertical: 10, alignItems: 'center', borderRadius: 14, marginBottom: 4, alignSelf: 'stretch' },
+  dateItemText: { fontSize: 12 },
+  dateButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 },
+  dateSecondaryBtn: { paddingVertical: 10, paddingHorizontal: 14, marginRight: 8 },
+  dateSecondaryText: { fontSize: 14 },
+  datePrimaryBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 16 },
+  datePrimaryText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });

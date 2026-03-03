@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useUserProfile } from '../context/UserProfileContext';
+import { supabase } from '../../supabase';
+import type { SkinType } from '../context/UserProfileContext';
+import type { SensitivityLevel } from '../context/UserProfileContext';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 type QuestionId =
   | 'bioSex'
@@ -41,7 +48,8 @@ type AnswersState = {
 
 export default function OnboardingSurveyScreen({ navigation }: { navigation: any }) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const { updateProfile } = useUserProfile();
 
   const questions: QuestionConfig[] = useMemo(
     () => [
@@ -414,9 +422,19 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.smallTitle, { color: theme.textSecondary }]}>{t('onb_header_small')}</Text>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>{t('onb_header_title')}</Text>
+      <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+        <View>
+          <Text style={[styles.smallTitle, { color: theme.textSecondary }]}>{t('onb_header_small')}</Text>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>{t('onb_header_title')}</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
+          onPress={() => setLanguage(language === 'tr' ? 'en' : 'tr')}
+          activeOpacity={0.7}
+        >
+          <Icon name="globe" size={18} color={theme.primary} />
+          <Text style={[styles.langButtonText, { color: theme.primary }]}>{language === 'tr' ? 'EN' : 'TR'}</Text>
+        </TouchableOpacity>
       </View>
 
       {!isFinished ? (
@@ -480,7 +498,12 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
               const answered = isAnswered(q) || isFinished;
               const current = !isFinished && index === currentIndex;
               return (
-                <View key={q.id} style={styles.lotusWrap}>
+                <TouchableOpacity
+                  key={q.id}
+                  style={styles.lotusWrap}
+                  onPress={() => !isFinished && setCurrentIndex(index)}
+                  activeOpacity={0.8}
+                >
                   <View
                     style={[
                       styles.lotusCircle,
@@ -493,9 +516,7 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                     <Text
                       style={[
                         styles.lotusEmoji,
-                        {
-                          opacity: answered ? 1 : 0.4,
-                        },
+                        { opacity: answered ? 1 : 0.4 },
                       ]}
                     >
                       🪷
@@ -504,14 +525,12 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                   <Text
                     style={[
                       styles.lotusIndex,
-                      {
-                        color: current ? theme.primary : theme.textSecondary,
-                      },
+                      { color: current ? theme.primary : theme.textSecondary },
                     ]}
                   >
                     {index + 1}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
@@ -562,7 +581,46 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
             <View style={{ flex: 1 }} />
             <TouchableOpacity
               style={[styles.navBtnPrimary, { backgroundColor: theme.primary }]}
-              onPress={() => navigation.replace('LoginScreen')}
+              onPress={async () => {
+                const skinFeel = answers.skinFeel as string | undefined;
+                let skinType: SkinType = 'combination';
+                if (skinFeel === 'onb_q3_opt1') skinType = 'dry';
+                else if (skinFeel === 'onb_q3_opt2') skinType = 'oily';
+                else if (skinFeel === 'onb_q3_opt3') skinType = 'combination';
+                else if (skinFeel === 'onb_q3_opt4') skinType = 'normal';
+                const sens = answers.sensitivity as string | undefined;
+                let sensitivity: SensitivityLevel = 'medium';
+                if (sens === 'onb_q7_opt1') sensitivity = 'low';
+                else if (sens === 'onb_q7_opt2') sensitivity = 'medium';
+                else if (sens === 'onb_q7_opt3') sensitivity = 'high';
+                const rawProblems = (answers.skinProblems as string[] | undefined) ?? [];
+                const skinProblems = rawProblems.map((key) => t(key));
+                const birthDate = answers.birthDate instanceof Date
+                  ? answers.birthDate.toISOString().slice(0, 10)
+                  : undefined;
+                updateProfile({
+                  skinType,
+                  sensitivity,
+                  skinProblems,
+                  ...(birthDate && { birthDate }),
+                });
+                try {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (user) {
+                    await supabase.from('profiles').upsert({
+                      id: user.id,
+                      skin_type: skinType,
+                      sensitivity,
+                      skin_problems: skinProblems,
+                      ...(birthDate && { birth_date: birthDate }),
+                      updated_at: new Date().toISOString(),
+                    });
+                  }
+                } catch (e) {
+                  console.warn('Onboarding profile sync:', e);
+                }
+                navigation.replace('MainTabs');
+              }}
             >
               <Text style={styles.navBtnPrimaryText}>{t('onb_result_cta')}</Text>
             </TouchableOpacity>
@@ -571,18 +629,24 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
       </View>
 
       {showDatePicker && (
-        <View style={[styles.dateOverlay, { backgroundColor: theme.background + 'CC' }]}>
-          <View style={[styles.dateSheet, { backgroundColor: theme.cardBg }]}>
-            <Text style={[styles.dateSheetTitle, { color: theme.textPrimary }]}>
-              {t('onb_q2_title')}
-            </Text>
-            <View style={styles.dateColumns}>
-              <ScrollView
-                style={styles.dateColumn}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled
-              >
-                {days.map((d) => (
+        <Modal visible transparent animationType="fade">
+          <View style={[styles.dateOverlay, { backgroundColor: theme.background + 'CC' }]}>
+            <ScrollView
+              contentContainerStyle={styles.dateSheetScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={[styles.dateSheet, { backgroundColor: theme.cardBg }]}>
+                <Text style={[styles.dateSheetTitle, { color: theme.textPrimary }]}>
+                  {t('onb_q2_title')}
+                </Text>
+                <View style={[styles.dateColumns, { maxHeight: SCREEN_HEIGHT * 0.38 }]}>
+                  <ScrollView
+                    style={styles.dateColumn}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {days.map((d) => (
                   <TouchableOpacity
                     key={d}
                     style={[
@@ -676,7 +740,9 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+            </ScrollView>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -691,6 +757,16 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 12,
   },
+  langButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  langButtonText: { fontSize: 14, fontWeight: '700' },
   smallTitle: {
     fontSize: 13,
     marginBottom: 4,
@@ -885,8 +961,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dateSheetScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+  },
   dateSheet: {
     width: '86%',
+    alignSelf: 'center',
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -903,7 +986,8 @@ const styles = StyleSheet.create({
   },
   dateColumn: {
     width: '30%',
-    maxHeight: 160,
+    flex: 1,
+    minHeight: 180,
   },
   dateItem: {
     paddingVertical: 6,

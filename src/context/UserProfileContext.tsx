@@ -11,6 +11,9 @@ export interface UserProfile {
   sensitivity: SensitivityLevel;
   skinProblems: string[];
   profileImageUri: string | null;
+  birthDate?: string | null;
+  height?: string;
+  weight?: string;
 }
 
 const defaultProfile: UserProfile = {
