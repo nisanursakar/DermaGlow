@@ -103,6 +103,154 @@ const translations: Record<Language, Record<string, string>> = {
     routineDiffSub: 'Sabah rutini cildi korumaya, akşam rutini ise temizlemeye ve onarmaya odaklanır. Her ikisi de cilt sağlığı için önemlidir.',
     routineDiffDetail:
       'Sabah ve akşam rutinleri aynı ürünlerden oluşsa bile amaçları farklıdır.\n\nSabah rutini odağı:\n• Gece boyunca biriken fazla sebumu nazikçe arındırmak,\n• Cildi güne hazırlamak ve çevresel faktörlere (güneş, kirlilik vb.) karşı korumak,\n• Güneş koruyucu ile cilt bariyerini desteklemek.\n\nAkşam rutini odağı:\n• Makyaj, güneş kremi ve gün boyu biriken kirleri tamamen temizlemek,\n• Cilt bariyerini onarmaya yardımcı aktif içerikleri (nemlendiriciler, bariyer destekleyiciler vb.) uygulamak,\n• Hücre yenilenmesinin en aktif olduğu gece saatlerinde cilde bakım yapmak.\n\nİpucu: Rutinini cilt tipine ve mevsime göre hafifçe güncellemek, uzun vadede daha dengeli bir cilt görünümü sağlar.',
+    // Onboarding
+    onb_header_small: 'Seni daha yakından tanıyalım',
+    onb_header_title: 'Cildinle ilgili birkaç soru 🤍',
+    onb_skip: 'Sonra doldur',
+    onb_back: 'Geri',
+    onb_next: 'Devam',
+    onb_finish: 'Bitir',
+    onb_yes: 'Evet',
+    onb_no: 'Hayır',
+    onb_sometimes: 'Bazen',
+    onb_opt_unsure: 'Emin değilim',
+    // 1
+    onb_q1_title: 'Biyolojik cinsiyetiniz nedir?',
+    onb_q1_opt1: 'Kadın',
+    onb_q1_opt2: 'Erkek',
+    onb_q1_opt3: 'Belirtmek istemiyorum',
+    // 2
+    onb_q2_title: 'Doğum tarihiniz nedir?',
+    onb_q2_desc: 'Yaşınızı doğru değerlendirebilmek için gün/ay/yıl şeklinde seçin.',
+    onb_q2_placeholder: 'Gün / Ay / Yıl seçmek için dokunun',
+    onb_q2_selected: 'Tarih seçildi',
+    // 3
+    onb_q3_title: 'Cildini genellikle nasıl hissediyorsun?',
+    onb_q3_opt1: 'Kuru ve gergin',
+    onb_q3_opt2: 'Yağlı ve parlak',
+    onb_q3_opt3: 'Karma (T bölgesi yağlı)',
+    onb_q3_opt4: 'Normal / Dengeli',
+    // 4
+    onb_q4_title: 'Gün içinde yüzünüz ne kadar yağlanır?',
+    onb_q4_opt1: 'Hiç',
+    onb_q4_opt2: 'Hafif',
+    onb_q4_opt3: 'Belirgin',
+    onb_q4_opt4: 'Çok fazla',
+    // 5
+    onb_q5_title: 'Duş sonrasında cildinizde gerginlik oluyor mu?',
+    // 6
+    onb_q6_title: 'Aşağıdaki cilt problemlerinden hangilerini yaşıyorsunuz?',
+    onb_q6_opt1: 'Akne / sivilce',
+    onb_q6_opt2: 'Siyah nokta',
+    onb_q6_opt3: 'Leke',
+    onb_q6_opt4: 'Kızarıklık',
+    onb_q6_opt5: 'Kırışıklık',
+    onb_q6_opt6: 'Gözenek görünümü',
+    // 7
+    onb_q7_title: 'Cilt hassasiyetiniz var mı?',
+    onb_q7_opt1: 'Evet, kolay kızarır',
+    onb_q7_opt2: 'Bazen hassaslaşıyor',
+    onb_q7_opt3: 'Hayır, hassas değil',
+    // 8
+    onb_q8_title: 'Güneş kremi kullanıyor musunuz?',
+    onb_yes_daily: 'Evet, her gün',
+    onb_yes_sometimes: 'Bazen kullanıyorum',
+    // 9
+    onb_q9_title: 'Günlük su tüketiminiz yaklaşık ne kadar?',
+    onb_q9_opt1: '1 litreden az',
+    onb_q9_opt2: '1–2 litre',
+    onb_q9_opt3: '2 litreden fazla',
+    // 10
+    onb_q10_title: 'Makyaj yapıyor musunuz?',
+    onb_q10_opt1: 'Her gün',
+    onb_q10_opt2: 'Ara sıra',
+    onb_q10_opt3: 'Hiç yapmıyorum',
+    // 11
+    onb_q11_title: 'Yanak bölgeni en iyi hangi meyve tanımlar?',
+    onb_q11_opt1: '🍎 Elma gibi pürüzsüz',
+    onb_q11_opt2: '🍋 Limon gibi pürüzlü ve gözenekli',
+    onb_q11_opt3: '🍊 Portakal gibi pürüzlü',
+    onb_q11_opt4: '🍓 Çilek gibi dolgun',
+    onb_q11_opt5: '🍑 Şeftali gibi yumuşak',
+    // 12
+    onb_q12_title: 'Yüzüne yakından baktığında nerelerde çizgi görüyorsun?',
+    onb_q12_opt1: 'Göz çevresinde',
+    onb_q12_opt2: 'Ağız çevresinde',
+    onb_q12_opt3: 'Alın bölgesinde',
+    onb_q12_opt4: 'Her yerde',
+    onb_q12_opt5: 'Hiçbir yerde',
+    // 13
+    onb_q13_title: 'Cilt bakımından en büyük beklentiniz ne?',
+    onb_q13_opt1: 'Sivilce / akne azalması',
+    onb_q13_opt2: 'Leke görünümünü azaltmak',
+    onb_q13_opt3: 'Daha parlak ve canlı görünüm',
+    onb_q13_opt4: 'Yaşlanma karşıtı bakım',
+    onb_q13_opt5: 'Nem dengesini sağlamak',
+    // 14
+    onb_q14_title: 'Cilt renginizi nasıl tanımlarsınız?',
+    onb_q14_opt1: 'Çok açık',
+    onb_q14_opt2: 'Açık',
+    onb_q14_opt3: 'Orta',
+    onb_q14_opt4: 'Buğday / esmer',
+    onb_q14_opt5: 'Koyu ten',
+    // 15
+    onb_q15_title: 'Herhangi bir dermatolojik tedavi görüyor musunuz?',
+    // 16
+    onb_q16_title: 'Reçeteli cilt ürünü kullanıyor musunuz?',
+    // 17
+    onb_q17_title: 'Hamilelik veya hormonal bir tedavi süreciniz var mı?',
+    // 18
+    onb_q18_title: 'Cilt bakımına ayırabileceğiniz süre ne kadar?',
+    onb_q18_opt1: 'Yaklaşık 5 dakika',
+    onb_q18_opt2: 'Yaklaşık 10 dakika',
+    onb_q18_opt3: '20 dakika ve üzeri',
+    // 19
+    onb_q19_title: 'Cildinde geçmişte sivilce bulunan yerler daha koyu görünüyor mu?',
+    // 20
+    onb_q20_title: 'Yüzünüzde çok fazla siyah nokta var mı?',
+    // Months for date picker
+    onb_month_1: 'Ocak',
+    onb_month_2: 'Şubat',
+    onb_month_3: 'Mart',
+    onb_month_4: 'Nisan',
+    onb_month_5: 'Mayıs',
+    onb_month_6: 'Haziran',
+    onb_month_7: 'Temmuz',
+    onb_month_8: 'Ağustos',
+    onb_month_9: 'Eylül',
+    onb_month_10: 'Ekim',
+    onb_month_11: 'Kasım',
+    onb_month_12: 'Aralık',
+    // Result
+    onb_result_title: 'Cilt analizin hazır',
+    onb_result_sub:
+      'Bu özet tıbbi bir tanı değildir; seni daha iyi tanımak ve bakım önerilerini buna göre uyarlamak için hazırlanmıştır.',
+    onb_result_skin_title: 'Genel cilt yapın 🌸',
+    onb_result_skin_dry:
+      'Yanıtlarına göre cilt yapın kurumaya yatkın görünüyor. Nazik temizleyiciler, bariyer güçlendirici nemlendiriciler ve düzenli su tüketimi senin için özellikle önemli.',
+    onb_result_skin_oily:
+      'Cildin yağlanmaya eğilimli. Köpüren ama kurutmayan temizleyiciler, hafif yapılı nemlendiriciler ve düzenli güneş koruyucu kullanımı denge sağlamana yardımcı olabilir.',
+    onb_result_skin_combo:
+      'Cildin T bölgesi daha yağlı, yanaklar ise daha dengeli veya kuru olabilir. Bölgesel bakım (T bölgesine daha hafif, yanaklara daha nemli ürünler) senin için ideal olabilir.',
+    onb_result_skin_normal:
+      'Cildin genel olarak dengeli görünüyor. Bariyerini koruyan nazik ürünler ve düzenli güneş koruması ile bu dengeyi sürdürebilirsin.',
+    onb_result_hydration_title: 'Nem ve su dengesi 💧',
+    onb_result_hydration_low:
+      'Su tüketimin düşük görünüyor. Gün içine yayılmış küçük yudumlar, hem genel sağlığın hem de cilt nem dengen için iyi bir başlangıç olur.',
+    onb_result_hydration_mid:
+      'Su tüketimin fena değil, ancak cilt kuruluğu hissediyorsan miktarı veya gün içine yayılışını gözden geçirmek faydalı olabilir.',
+    onb_result_hydration_good:
+      'Su tüketimin gayet iyi görünüyor. Bunu, cildinin dışarıdan nemlendirilmesiyle birleştirmen, daha aydınlık ve dolgun bir görünüm sağlayabilir.',
+    onb_result_sun_title: 'Güneş koruması ☀️',
+    onb_result_sun_good:
+      'Güneş kremini düzenli kullanıyor olman cilt yaşlanmasını yavaşlatmak ve leke riskini azaltmak için harika bir adım. Bu alışkanlığı mutlaka korumalısın.',
+    onb_result_sun_mid:
+      'Zaman zaman güneş kremi kullanıyorsun; bu iyi bir başlangıç. Her gün, özellikle gündüz bakım rutininin son adımı olarak kullanmak cildini daha iyi korur.',
+    onb_result_sun_low:
+      'Güneş kremi kullanmıyorsun veya çok nadir kullanıyorsun. UV ışınları leke, ince çizgi ve hassasiyeti artırabilir; günlük bir SPF eklemek uzun vadede büyük fark yaratır.',
+    onb_result_focus_title: 'Bakım odağın ✨',
+    onb_result_focus_text_prefix: 'Bu rutinde özellikle şu hedefe odaklanacağız: ',
+    onb_result_cta: 'Uygulamaya Başla',
     // Routine
     dailyRoutine: 'Günlük Rutin',
     morningRoutine: 'Sabah Rutini',
@@ -262,6 +410,154 @@ const translations: Record<Language, Record<string, string>> = {
     routineDiffSub: 'Morning routine is for protection, evening for cleansing and repair',
     routineDiffDetail:
       'Even when you use similar products, morning and evening routines have different goals.\n\nMorning routine focus:\n• Gently remove excess sebum that accumulated overnight,\n• Prepare the skin for the day and protect it from environmental factors (sun, pollution, etc.),\n• Support the skin barrier with sunscreen.\n\nEvening routine focus:\n• Thoroughly remove makeup, sunscreen and daily buildup,\n• Apply repairing and barrier‑supporting products (moisturizers, barrier‑strengthening formulas, etc.),\n• Care for the skin during night‑time when cell renewal is most active.\n\nTip: Adjusting your routine slightly based on your skin type and the season can help you maintain a more balanced complexion in the long term.',
+    // Onboarding
+    onb_header_small: 'Let us get to know you',
+    onb_header_title: 'A few questions about your skin 🤍',
+    onb_skip: 'Fill in later',
+    onb_back: 'Back',
+    onb_next: 'Next',
+    onb_finish: 'Finish',
+    onb_yes: 'Yes',
+    onb_no: 'No',
+    onb_sometimes: 'Sometimes',
+    onb_opt_unsure: 'Not sure',
+    // 1
+    onb_q1_title: 'What is your biological sex?',
+    onb_q1_opt1: 'Female',
+    onb_q1_opt2: 'Male',
+    onb_q1_opt3: 'Prefer not to say',
+    // 2
+    onb_q2_title: 'What is your date of birth?',
+    onb_q2_desc: 'Select your date of birth in day / month / year format so we can better understand your skin needs.',
+    onb_q2_placeholder: 'Tap to choose day / month / year',
+    onb_q2_selected: 'Date selected',
+    // 3
+    onb_q3_title: 'How does your skin usually feel?',
+    onb_q3_opt1: 'Dry and tight',
+    onb_q3_opt2: 'Oily and shiny',
+    onb_q3_opt3: 'Combination (oily T‑zone)',
+    onb_q3_opt4: 'Normal / balanced',
+    // 4
+    onb_q4_title: 'How oily does your face get during the day?',
+    onb_q4_opt1: 'Not at all',
+    onb_q4_opt2: 'Slightly',
+    onb_q4_opt3: 'Noticeably',
+    onb_q4_opt4: 'Very oily',
+    // 5
+    onb_q5_title: 'Does your skin feel tight after showering?',
+    // 6
+    onb_q6_title: 'Which of the following skin concerns do you experience?',
+    onb_q6_opt1: 'Acne / breakouts',
+    onb_q6_opt2: 'Blackheads',
+    onb_q6_opt3: 'Dark spots / hyperpigmentation',
+    onb_q6_opt4: 'Redness',
+    onb_q6_opt5: 'Wrinkles / fine lines',
+    onb_q6_opt6: 'Visible pores',
+    // 7
+    onb_q7_title: 'Is your skin sensitive?',
+    onb_q7_opt1: 'Yes, it easily turns red',
+    onb_q7_opt2: 'Sometimes sensitive',
+    onb_q7_opt3: 'No, not really',
+    // 8
+    onb_q8_title: 'Do you use sunscreen?',
+    onb_yes_daily: 'Yes, every day',
+    onb_yes_sometimes: 'Sometimes',
+    // 9
+    onb_q9_title: 'Approximately how much water do you drink per day?',
+    onb_q9_opt1: 'Less than 1 litre',
+    onb_q9_opt2: '1–2 litres',
+    onb_q9_opt3: 'More than 2 litres',
+    // 10
+    onb_q10_title: 'Do you wear makeup?',
+    onb_q10_opt1: 'Every day',
+    onb_q10_opt2: 'Sometimes',
+    onb_q10_opt3: 'Never',
+    // 11
+    onb_q11_title: 'Which fruit best describes your cheeks?',
+    onb_q11_opt1: '🍎 Smooth like an apple',
+    onb_q11_opt2: '🍋 Textured with visible pores like a lemon',
+    onb_q11_opt3: '🍊 Rough like an orange',
+    onb_q11_opt4: '🍓 Plump like a strawberry',
+    onb_q11_opt5: '🍑 Soft like a peach',
+    // 12
+    onb_q12_title: 'Where do you see fine lines when you look closely?',
+    onb_q12_opt1: 'Around the eyes',
+    onb_q12_opt2: 'Around the mouth',
+    onb_q12_opt3: 'Forehead',
+    onb_q12_opt4: 'All over the face',
+    onb_q12_opt5: 'Nowhere',
+    // 13
+    onb_q13_title: 'What is your main goal in skincare?',
+    onb_q13_opt1: 'Reduce acne / breakouts',
+    onb_q13_opt2: 'Fade dark spots',
+    onb_q13_opt3: 'More glow and radiance',
+    onb_q13_opt4: 'Anti‑aging care',
+    onb_q13_opt5: 'Balance moisture',
+    // 14
+    onb_q14_title: 'How would you describe your skin tone?',
+    onb_q14_opt1: 'Very fair',
+    onb_q14_opt2: 'Fair',
+    onb_q14_opt3: 'Medium',
+    onb_q14_opt4: 'Tan / olive',
+    onb_q14_opt5: 'Deep / dark',
+    // 15
+    onb_q15_title: 'Are you currently under dermatological treatment?',
+    // 16
+    onb_q16_title: 'Do you use any prescription skincare products?',
+    // 17
+    onb_q17_title: 'Are you pregnant or on hormonal treatment?',
+    // 18
+    onb_q18_title: 'How much time can you spare for skincare?',
+    onb_q18_opt1: 'Around 5 minutes',
+    onb_q18_opt2: 'Around 10 minutes',
+    onb_q18_opt3: '20 minutes or more',
+    // 19
+    onb_q19_title: 'Do areas where you previously had acne look darker?',
+    // 20
+    onb_q20_title: 'Do you have a lot of blackheads on your face?',
+    // Months for date picker
+    onb_month_1: 'January',
+    onb_month_2: 'February',
+    onb_month_3: 'March',
+    onb_month_4: 'April',
+    onb_month_5: 'May',
+    onb_month_6: 'June',
+    onb_month_7: 'July',
+    onb_month_8: 'August',
+    onb_month_9: 'September',
+    onb_month_10: 'October',
+    onb_month_11: 'November',
+    onb_month_12: 'December',
+    // Result
+    onb_result_title: 'Your skin mini‑report is ready',
+    onb_result_sub:
+      'This summary is not a medical diagnosis; it simply helps us get to know your skin better so we can align future suggestions with your needs.',
+    onb_result_skin_title: 'Your overall skin type 🌸',
+    onb_result_skin_dry:
+      'Your answers suggest that your skin tends to be dry. Gentle cleansers, barrier‑supporting moisturizers and consistent water intake will be especially important for you.',
+    onb_result_skin_oily:
+      'Your skin seems prone to oiliness. Foaming yet non‑stripping cleansers, lightweight moisturizers and regular sunscreen use can help keep things balanced.',
+    onb_result_skin_combo:
+      'You appear to have a combination skin type, with an oilier T‑zone and more balanced or dry cheeks. Using lighter textures on the T‑zone and richer formulas on the cheeks can work well for you.',
+    onb_result_skin_normal:
+      'Your skin looks relatively balanced overall. Sticking to gentle, barrier‑friendly products and daily sun protection can help you maintain this balance.',
+    onb_result_hydration_title: 'Hydration & water balance 💧',
+    onb_result_hydration_low:
+      'Your water intake seems on the lower side. Sipping water regularly throughout the day can support both your overall health and your skin\'s moisture balance.',
+    onb_result_hydration_mid:
+      'Your water intake is not bad, but if you still feel dryness, it may help to review both the amount and how evenly it is spread throughout the day.',
+    onb_result_hydration_good:
+      'Your daily water intake looks good. Combining this with external hydration (serums and moisturizers) can give your skin a more plump and radiant look.',
+    onb_result_sun_title: 'Sun protection ☀️',
+    onb_result_sun_good:
+      'Using sunscreen regularly is a great step for slowing visible aging and reducing the risk of dark spots. Keep up this habit as a non‑negotiable last step in your morning routine.',
+    onb_result_sun_mid:
+      'You use sunscreen sometimes, which is a good start. Making it a daily habit, especially as the final step of your morning routine, will protect your skin more effectively.',
+    onb_result_sun_low:
+      'You rarely or never use sunscreen. UV exposure can increase dark spots, fine lines and sensitivity; adding a daily SPF can make a big difference over time.',
+    onb_result_focus_title: 'Main focus for your routine ✨',
+    onb_result_focus_text_prefix: 'We will especially keep this goal in mind: ',
+    onb_result_cta: 'Start the app',
     dailyRoutine: 'Daily Routine',
     morningRoutine: 'Morning Routine',
     eveningRoutine: 'Evening Routine',

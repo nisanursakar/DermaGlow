@@ -17,11 +17,13 @@ import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import OnboardingSurveyScreen from '../screens/OnboardingSurveyScreen';
 
 // 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
 import AIFab from '../components/AIFab';
 
 export type RootStackParamList = {
+  OnboardingSurveyScreen: undefined;
   MainTabs: undefined;
   ProfileScreen: undefined;
   ChatDetailScreen: {
@@ -62,11 +64,16 @@ export default function AppNavigator() {
         initialRouteName="LoginScreen"
         screenOptions={{ headerShown: false }}
       >
-      <Stack.Screen
+        <Stack.Screen
             name="ResetPasswordScreen"
             component={ResetPasswordScreen}
             options={{ headerShown: true, title: 'Yeni Şifre Oluştur' }}
           />
+        <Stack.Screen
+          name="OnboardingSurveyScreen"
+          component={OnboardingSurveyScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
         <Stack.Screen
           name="ProfileScreen"

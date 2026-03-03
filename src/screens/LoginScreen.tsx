@@ -106,8 +106,8 @@ const handleForgotPassword = async () => {
         ]);
       }
 
-      Alert.alert('Success', 'Account created successfully, you can now login.');
-      setIsLogin(true);
+      Alert.alert('Success', 'Account created successfully. Let’s learn more about your skin.');
+      navigation.replace('OnboardingSurveyScreen');
     }
   };
 
