@@ -31,7 +31,7 @@ const translations: Record<Language, Record<string, string>> = {
     selectLanguage: 'Dil Seçin',
     helpCenterTitle: 'Yardım Merkezi',
     helpCenterContent:
-      'DermaGlow Yardım Merkezi\'ne hoş geldiniz.\n\nBurada uygulamayı nasıl kullanacağınız, analiz ekranlarının ne anlama geldiği ve sık karşılaşılan sorunlar hakkında özet bilgiler bulabilirsiniz.\n\nSık sorulan sorular:\n• Cilt analizi nasıl yapılır?\n  - Ana ekrandan Kamera sekmesine geçin, \"Cilt Analizi\" modunu seçin ve yönergeleri takip edin.\n• Rutinime nasıl görev eklerim?\n  - Rutin sekmesine gidip \"Yeni görev ekle\" alanına adını yazın ve Kaydet\'e dokunun.\n• Son analizlerimi nereden görebilirim?\n  - Kamera sekmesindeki \"Analiz Geçmişi\" bölümünden ulaşabilirsiniz.\n\nDaha detaylı destek için İletişim ekranından bize ulaşabilirsiniz.',
+      'DermaGlow Yardım Merkezi\'ne hoş geldiniz.\n\nBurada uygulamayı nasıl kullanacağınız, analiz ekranlarının ne anlama geldiği ve sık karşılaşılan sorunlar hakkında özet bilgiler bulabilirsiniz.\n\nSık sorulan sorular:\n• Cilt analizi nasıl yapılır?\n  - Ana ekrandan Kamera sekmesine geçin, "Cilt Analizi" modunu seçin ve yönergeleri takip edin.\n• Rutinime nasıl görev eklerim?\n  - Rutin sekmesine gidip "Yeni görev ekle" alanına adını yazın ve Kaydet\'e dokunun.\n• Son analizlerimi nereden görebilirim?\n  - Kamera sekmesindeki "Analiz Geçmişi" bölümünden ulaşabilirsiniz.\n\nDaha detaylı destek için İletişim ekranından bize ulaşabilirsiniz.',
     aboutUsTitle: 'Hakkımızda',
     aboutUsContent:
       'DermaGlow, cilt ve saç derisi sağlığınızı daha bilinçli takip edebilmeniz için tasarlanmış bir kişisel bakım asistanıdır.\n\nAmacımız, karmaşık dermatoloji terimlerini sadeleştirerek herkes için anlaşılır hale getirmek ve günlük bakım rutinlerinizi sürdürülebilir bir alışkanlığa dönüştürmektir.\n\nDermaGlow ile:\n• Cilt ve saç derisi analizi yapabilir,\n• Günlük bakım rutininizi planlayabilir,\n• Zaman içindeki gelişiminizi takip edebilirsiniz.\n\nUygulama, tıbbi tanı koymaz ve doktor muayenesinin yerini almaz. Her zaman cilt sağlığınızla ilgili önemli kararlar için bir uzmana danışmanızı öneririz.',
@@ -283,6 +283,11 @@ const translations: Record<Language, Record<string, string>> = {
     scalpTip1: 'Saçı net ayırın',
     scalpTip2: 'Saç derisi görünür olsun',
     scalpTip3: 'Parlak ışık kullanın',
+
+    // --- YENİ EKLENEN ÇEVİRİLER (TÜRKÇE) ---
+    skinGuidance: 'Yüzünüzü çerçevenin ortasına yerleştirin',
+    scalpGuidance: 'Saç ayrımını çerçevenin ortasına getirin',
+
     ok: 'Tamam',
     cancel: 'İptal',
     later: 'Daha Sonra',
@@ -600,6 +605,11 @@ const translations: Record<Language, Record<string, string>> = {
     scalpTip1: 'Part hair clearly',
     scalpTip2: 'Keep scalp visible',
     scalpTip3: 'Use bright lighting',
+
+    // --- YENİ EKLENEN ÇEVİRİLER (İNGİLİZCE) ---
+    skinGuidance: 'Center your face in the frame',
+    scalpGuidance: 'Center your hair parting in the frame',
+
     ok: 'OK',
     cancel: 'Cancel',
     later: 'Later',

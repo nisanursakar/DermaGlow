@@ -34,21 +34,20 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      alert("Önce email gir.");
+      return;
+    }
 
-const handleForgotPassword = async () => {
-  if (!email) {
-    alert("Önce email gir.");
-    return;
-  }
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
-
-  if (error) {
-    alert(error.message);
-  } else {
-    alert("Mail gönderildi.");
-  }
-};
+    if (error) {
+      alert(error.message);
+    } else {
+      alert("Mail gönderildi.");
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -150,7 +149,7 @@ const handleForgotPassword = async () => {
             style={[
               styles.tab,
               { borderRadius: br - 4 },
-              isLogin && { backgroundColor: theme.cardBg, shadowColor: theme.shadow }
+              isLogin && [styles.activeTab, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]
             ]}
             onPress={() => setIsLogin(true)}
             activeOpacity={1}
@@ -163,7 +162,7 @@ const handleForgotPassword = async () => {
             style={[
               styles.tab,
               { borderRadius: br - 4 },
-              !isLogin && { backgroundColor: theme.cardBg, shadowColor: theme.shadow }
+              !isLogin && [styles.activeTab, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]
             ]}
             onPress={() => setIsLogin(false)}
             activeOpacity={1}
@@ -232,13 +231,14 @@ const handleForgotPassword = async () => {
 
             {isLogin ? (
               <>
-                <TouchableOpacity   style={styles.forgotPassword}
-                                    onPress={handleForgotPassword}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Text style={[styles.forgotPasswordText, { color: theme.primaryLight }]}>
-                                      {t('forgotPassword')}
-                                    </Text>
+                <TouchableOpacity
+                  style={styles.forgotPassword}
+                  onPress={handleForgotPassword}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.forgotPasswordText, { color: theme.primaryLight }]}>
+                    {t('forgotPassword')}
+                  </Text>
                 </TouchableOpacity>
                 <Pressable
                   onPress={handleLogin}
@@ -338,8 +338,14 @@ const styles = StyleSheet.create({
   logo: { width: 140, height: 140, marginBottom: 10 },
   appName: { fontSize: 24, fontWeight: '700', letterSpacing: 0.5 },
   tabContainer: { flexDirection: 'row', width: '100%', maxWidth: 320, marginBottom: 16 },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: 16, fontWeight: '600' },
+
+  // Gölge ve elevation base tab stilinden çıkartıldı
+  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  // Sadece aktif sekmeye gölge uyguluyoruz
+  activeTab: { shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
+  // Metinlerin arkasına şeffaflık zorunluluğu getirildi
+  tabText: { fontSize: 16, fontWeight: '600', backgroundColor: 'transparent' },
+
   formCard: {
     width: '100%',
     maxWidth: 320,
@@ -373,5 +379,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  primaryButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  // Metinlerin arkasına şeffaflık zorunluluğu getirildi
+  primaryButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', backgroundColor: 'transparent' },
 });
