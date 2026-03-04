@@ -25,16 +25,24 @@ import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
 
+// API Anahtarımızı güvenli dosyadan çekiyoruz
+import { GEMINI_API_KEY } from '../../secrets';
+
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'CameraScreen'>;
+
+export interface IssueType {
+  name: string;
+  impact: number;
+}
 
 export interface ExtendedHistoryItem extends HistoryItem {
   imageUri?: string;
+  issues?: IssueType[];
+  aiComment?: string;
 }
 
-// Sahte verileri tamamen sildik, artık ilk açılışta liste tertemiz (boş) gelecek
 const INITIAL_HISTORY: ExtendedHistoryItem[] = [];
 
-// Tarihi Türkçe formatta almak için yardımcı fonksiyon
 const getTodayDateString = () => {
   const today = new Date();
   const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -71,11 +79,80 @@ export default function CameraScreen() {
   }, [t]);
 
   const navigateToAnalysis = useCallback(
-    (params: { analysisId: string; type: 'skin' | 'scalp'; score: number; previousScore?: number; imageUri?: string }) => {
+    (params: { analysisId: string; type: 'skin' | 'scalp'; score: number; previousScore?: number; imageUri?: string; issues?: IssueType[]; aiComment?: string }) => {
       navigation.getParent?.()?.navigate('AnalysisDetailScreen', params);
     },
     [navigation]
   );
+
+  // --- GERÇEK YAPAY ZEKA ANALİZ MOTORU (GOOGLE GEMINI 2.5 FLASH) ---
+  const analyzeWithRealAI = async (base64Image: string, currentMode: CameraMode) => {
+    try {
+      const modeText = currentMode === 'skin' ? 'yüz/cilt' : 'saç derisi';
+      const prompt = `Sen uzman bir dermatologsun. Ekteki ${modeText} fotoğrafını detaylıca incele. Lütfen bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama, selamlama veya markdown tırnak işareti (\`\`\`) kullanma. Sadece saf JSON objesi döndür:
+      {
+        "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
+        "issues": [
+          { "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce, Nem Kaybı)>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> },
+          { "name": "<Tespit ettiğin ikinci sorunun adı>", "impact": <0 ile 100 arası etki yüzdesi> }
+        ],
+        "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
+      }`;
+
+      const requestBody = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: base64Image
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      // HATA ÇÖZÜLDÜ: Google'ın en yeni ve aktif modeli olan gemini-2.5-flash eklendi!
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'API Hatası');
+      }
+
+      let textResponse = data.candidates[0].content.parts[0].text;
+
+      // Güvenlik: Gemini bazen ```json etiketleri koyabilir, onları temizliyoruz
+      textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      const parsedData = JSON.parse(textResponse);
+
+      // JSON içindeki sorunları etki yüzdesine göre büyükten küçüğe sıralayalım
+      if (parsedData.issues && Array.isArray(parsedData.issues)) {
+        parsedData.issues.sort((a: any, b: any) => b.impact - a.impact);
+      }
+
+      return parsedData;
+
+    } catch (error) {
+      console.error("Yapay Zeka Analiz Hatası:", error);
+      // Hata durumunda uygulamanın çökmemesi için güvenli bir yedek sonuç döndürüyoruz
+      return {
+        score: 65,
+        issues: [{ name: 'Analiz Tamamlanamadı', impact: 0 }],
+        aiComment: 'Görsel tam olarak işlenemedi. Lütfen daha net veya aydınlık bir ortamda tekrar fotoğraf çekin.'
+      };
+    }
+  };
 
   const handleCapture = useCallback(async () => {
     const granted = await requestCameraPermission();
@@ -90,29 +167,35 @@ export default function CameraScreen() {
     }
     setCameraPermissionDenied(false);
     try {
-      setAnalyzing(true);
       const result = await launchCamera({
         mediaType: 'photo',
         cameraType: 'back',
         quality: 0.8,
         saveToPhotos: false,
+        includeBase64: true, // YAPAY ZEKA İÇİN FOTOĞRAFI METNE ÇEVİRİR
       });
-      if (result.didCancel || !result.assets?.[0]?.uri) {
-        setAnalyzing(false);
+      if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) {
         return;
       }
 
       const photoUri = result.assets[0].uri;
-      const newScore = 70 + Math.floor(Math.random() * 20);
+      const base64Image = result.assets[0].base64;
+
+      setAnalyzing(true);
+      const analysisResult = await analyzeWithRealAI(base64Image, mode); // GERÇEK YAPAY ZEKAYI ÇAĞIR
+      setAnalyzing(false);
+
       const previousScore = history.length > 0 ? history[0].score : 70;
 
       const newItem: ExtendedHistoryItem = {
         id: `new-${Date.now()}`,
         type: mode,
         date: getTodayDateString(),
-        score: newScore,
-        improvement: newScore - previousScore,
+        score: analysisResult.score,
+        improvement: analysisResult.score - previousScore,
         imageUri: photoUri,
+        issues: analysisResult.issues,
+        aiComment: analysisResult.aiComment
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -123,54 +206,60 @@ export default function CameraScreen() {
         score: newItem.score,
         previousScore: previousScore,
         imageUri: photoUri,
+        issues: newItem.issues,
+        aiComment: newItem.aiComment
       });
     } catch (e) {
-      Alert.alert(t('cameraPermissionTitle'), 'Fotoğraf çekilemedi.');
-    } finally {
       setAnalyzing(false);
+      Alert.alert(t('errorTitle'), 'Fotoğraf çekilemedi.');
     }
   }, [mode, history, navigateToAnalysis, requestCameraPermission, t]);
 
   const handleGalleryPick = useCallback(async () => {
     try {
-      setAnalyzing(true);
       const result = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,
+        includeBase64: true, // YAPAY ZEKA İÇİN FOTOĞRAFI METNE ÇEVİRİR
       });
-      if (result.didCancel || !result.assets?.[0]?.uri) {
-        setAnalyzing(false);
+      if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) {
         return;
       }
 
       const selectedImageUri = result.assets[0].uri;
-      const newScore = 72 + Math.floor(Math.random() * 18);
+      const base64Image = result.assets[0].base64;
+
+      setAnalyzing(true);
+      const analysisResult = await analyzeWithRealAI(base64Image, mode); // GERÇEK YAPAY ZEKAYI ÇAĞIR
+      setAnalyzing(false);
+
       const previousScore = history.length > 0 ? history[0].score : 70;
 
       const newItem: ExtendedHistoryItem = {
         id: `gallery-${Date.now()}`,
         type: mode,
         date: getTodayDateString(),
-        score: newScore,
-        improvement: newScore - previousScore,
+        score: analysisResult.score,
+        improvement: analysisResult.score - previousScore,
         imageUri: selectedImageUri,
+        issues: analysisResult.issues,
+        aiComment: analysisResult.aiComment
       };
 
       setHistory(prev => [newItem, ...prev]);
 
-      setTimeout(() => {
-        setAnalyzing(false);
-        navigateToAnalysis({
-          analysisId: newItem.id,
-          type: newItem.type,
-          score: newItem.score,
-          previousScore: previousScore,
-          imageUri: selectedImageUri,
-        });
-      }, 600);
+      navigateToAnalysis({
+        analysisId: newItem.id,
+        type: newItem.type,
+        score: newItem.score,
+        previousScore: previousScore,
+        imageUri: selectedImageUri,
+        issues: newItem.issues,
+        aiComment: newItem.aiComment
+      });
     } catch (e) {
       setAnalyzing(false);
-      Alert.alert(t('cameraPermissionTitle'), 'Galeri açılamadı.');
+      Alert.alert(t('errorTitle'), 'Galeri açılamadı.');
     }
   }, [mode, history, navigateToAnalysis, t]);
 
@@ -182,6 +271,8 @@ export default function CameraScreen() {
         score: item.score,
         previousScore: item.score - (item.improvement || 0),
         imageUri: item.imageUri,
+        issues: item.issues,
+        aiComment: item.aiComment
       });
     },
     [navigation]
@@ -214,15 +305,12 @@ export default function CameraScreen() {
         historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
         historyTitle: { flex: 1, fontSize: 16, fontWeight: '700' as const, color: theme.primary, marginLeft: 8 },
         seeAllText: { fontSize: 13, fontWeight: '600' as const, color: theme.secondary },
-
-        // Yeni eklenen Boş Durum (Empty State) tasarımları
         emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 16 },
         emptyStateText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center' as const, lineHeight: 22 },
-
         galleryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginTop: 20, paddingVertical: 14, backgroundColor: theme.cardBg, borderRadius: theme.borderRadius, borderWidth: 1, borderColor: theme.lightPurple },
         galleryButtonText: { fontSize: 14, color: theme.textSecondary, marginLeft: 8 },
-        loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-        loadingText: { marginTop: 12, fontSize: 14, color: theme.primary, fontWeight: '600' as const },
+        loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', borderRadius: theme.borderRadiusLarge },
+        loadingText: { marginTop: 16, fontSize: 16, color: '#FFF', fontWeight: '600' as const },
         bottomSpacing: { height: 24 },
         deniedCard: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
         deniedTitle: { fontSize: 18, fontWeight: '700' as const, color: theme.textPrimary, marginTop: 16, marginBottom: 8 },
@@ -274,6 +362,14 @@ export default function CameraScreen() {
               <Text style={styles.previewPlaceholderText}>{t('cameraPreview')}</Text>
               <Text style={styles.previewHint}>{t('takePhoto')}</Text>
             </View>
+
+            {analyzing && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#FFF" />
+                <Text style={styles.loadingText}>Google AI Analiz Ediyor...</Text>
+              </View>
+            )}
+
           </View>
           <ModeToggle mode={mode} onModeChange={setMode} />
         </View>
@@ -294,8 +390,6 @@ export default function CameraScreen() {
           <View style={styles.historyHeader}>
             <Icon name="image" size={20} color={theme.primary} />
             <Text style={styles.historyTitle}>{t('analysisHistory')}</Text>
-
-            {/* Eğer geçmiş boşsa "Tümünü Gör" butonunu saklıyoruz */}
             {history.length > 0 && (
               <TouchableOpacity onPress={handleSeeAllHistory}>
                 <Text style={styles.seeAllText}>{t('seeAll')}</Text>
@@ -303,7 +397,6 @@ export default function CameraScreen() {
             )}
           </View>
 
-          {/* Akıllı Liste: Boşsa mesaj göster, doluysa kartları göster */}
           {history.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Icon name="camera" size={36} color={theme.textSecondary} style={{ opacity: 0.5, marginBottom: 12 }} />
@@ -322,13 +415,6 @@ export default function CameraScreen() {
           <Icon name="image" size={20} color={theme.textSecondary} />
           <Text style={styles.galleryButtonText}>{t('selectFromGallery')}</Text>
         </TouchableOpacity>
-
-        {analyzing && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={styles.loadingText}>...</Text>
-          </View>
-        )}
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
