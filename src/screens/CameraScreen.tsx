@@ -116,7 +116,7 @@ export default function CameraScreen() {
         }
       };
 
-      // HATA ÇÖZÜLDÜ: Google'ın en yeni ve aktif modeli olan gemini-2.5-flash eklendi!
+      // GEMINI 2.5 FLASH KULLANILIYOR
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +145,6 @@ export default function CameraScreen() {
 
     } catch (error) {
       console.error("Yapay Zeka Analiz Hatası:", error);
-      // Hata durumunda uygulamanın çökmemesi için güvenli bir yedek sonuç döndürüyoruz
       return {
         score: 65,
         issues: [{ name: 'Analiz Tamamlanamadı', impact: 0 }],

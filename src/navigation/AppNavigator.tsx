@@ -17,6 +17,7 @@ import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import ProductSearchScreen from '../screens/ProductSearchScreen';
 import OnboardingSurveyScreen from '../screens/OnboardingSurveyScreen';
 
 // 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
@@ -44,6 +45,7 @@ export type RootStackParamList = {
   TermsOfUseScreen: undefined;
   LoginScreen: undefined;
   ResetPasswordScreen: undefined;
+  ProductSearchScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -75,6 +77,11 @@ export default function AppNavigator() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+        <Stack.Screen
+          name="ProductSearchScreen"
+          component={ProductSearchScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="ProfileScreen"
           component={ProfileScreen}

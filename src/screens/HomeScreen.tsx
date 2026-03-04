@@ -202,14 +202,19 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
 
         <View style={[styles.card, { backgroundColor: theme.cardBg, shadowColor: theme.shadow }]}>
           <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>{t('productFind')}</Text>
-          <TextInput
+          <TouchableOpacity
             style={[
-              styles.searchInput,
-              { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' },
+              styles.searchButton,
+              { backgroundColor: theme.primary, borderColor: 'transparent' },
             ]}
-            placeholder={t('searchProductPlaceholder')}
-            placeholderTextColor={theme.textSecondary}
-          />
+            activeOpacity={0.8}
+            onPress={() => navigation.getParent?.()?.navigate('ProductSearchScreen')}
+          >
+            <Icon name="search" size={18} color="#FFFFFF" />
+            <Text style={[styles.searchButtonText, { color: '#FFFFFF' }]}>
+              {t('searchProductPlaceholder')}
+            </Text>
+          </TouchableOpacity>
           <Text style={[styles.searchSubtitle, { color: theme.textSecondary }]}>
             {t('skinDiscover')}
           </Text>
@@ -352,6 +357,19 @@ const styles = StyleSheet.create({
   customWaterAddBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
   undoButton: { alignSelf: 'flex-start', marginTop: 12, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 2 },
   undoButtonText: { fontSize: 14, fontWeight: '700' },
+  searchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  searchButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+  },
   searchInput: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8, borderWidth: 1 },
   searchSubtitle: { fontSize: 13, fontStyle: 'italic' },
   sectionTitle: { fontSize: 20, fontWeight: '700', marginTop: 8, marginBottom: 16 },
