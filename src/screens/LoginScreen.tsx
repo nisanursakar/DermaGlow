@@ -34,24 +34,32 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // SUPABASE HATALARINI YAKALAYIP ÇEVİREN SÜZGEÇ
+  const getErrorMessage = (errorMsg: string) => {
+    if (errorMsg.includes('Invalid login credentials')) return t('authErrorInvalidCredentials');
+    if (errorMsg.includes('already registered')) return t('authErrorAlreadyRegistered');
+    if (errorMsg.includes('Password should be at least')) return t('resetPasswordErrorShort');
+    return errorMsg; // Eğer tanımadığımız başka bir hataysa orijinalini gösterir
+  };
+
   const handleForgotPassword = async () => {
     if (!email) {
-      alert("Önce email gir.");
+      Alert.alert(t('errorTitle'), t('enterEmailFirst'));
       return;
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     if (error) {
-      alert(error.message);
+      Alert.alert(t('errorTitle'), getErrorMessage(error.message));
     } else {
-      alert("Mail gönderildi.");
+      Alert.alert(t('successTitle'), t('resetMailSent'));
     }
   };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter your email and password.');
+      Alert.alert(t('errorTitle'), t('enterEmailPassword'));
       return;
     }
 
@@ -61,7 +69,8 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      Alert.alert('Error', error.message);
+      // Hata süzgeçten geçip çevrilerek ekrana yansır
+      Alert.alert(t('errorTitle'), getErrorMessage(error.message));
     } else {
       navigation.replace('MainTabs');
     }
@@ -69,12 +78,12 @@ export default function LoginScreen() {
 
   const handleSignUp = async () => {
     if (!email || !password || !confirmPassword || !firstName || !lastName) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      Alert.alert(t('errorTitle'), t('fillAllFields'));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      Alert.alert(t('errorTitle'), t('passwordsNotMatch'));
       return;
     }
 
@@ -91,7 +100,8 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      Alert.alert('Error', error.message);
+      // Hata süzgeçten geçip çevrilerek ekrana yansır
+      Alert.alert(t('errorTitle'), getErrorMessage(error.message));
     } else {
       if (data.user) {
         await supabase.from('profiles').insert([
@@ -105,7 +115,7 @@ export default function LoginScreen() {
         ]);
       }
 
-      Alert.alert('Success', 'Account created successfully. Let’s learn more about your skin.');
+      Alert.alert(t('successTitle'), t('accountCreated'));
       navigation.replace('OnboardingSurveyScreen');
     }
   };
@@ -115,7 +125,6 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Dil butonu – sağ üst */}
       <View style={[styles.langRow, { backgroundColor: theme.background }]}>
         <TouchableOpacity
           style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
@@ -134,7 +143,6 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo – sadece çizim; arka plan şeffaf, beyaz kutu yok */}
         <View style={[styles.logoSection, { backgroundColor: theme.background }]}>
           <Image
             source={require('../assets/images/logo.png')}
@@ -210,7 +218,6 @@ export default function LoginScreen() {
               autoCorrect={false}
             />
 
-            {/* Şifre + görünürlük */}
             <View style={[styles.passwordWrap, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40', borderRadius: br }]}>
               <TextInput
                 style={[styles.passwordInput, { color: theme.textPrimary }]}
@@ -338,14 +345,9 @@ const styles = StyleSheet.create({
   logo: { width: 140, height: 140, marginBottom: 10 },
   appName: { fontSize: 24, fontWeight: '700', letterSpacing: 0.5 },
   tabContainer: { flexDirection: 'row', width: '100%', maxWidth: 320, marginBottom: 16 },
-
-  // Gölge ve elevation base tab stilinden çıkartıldı
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
-  // Sadece aktif sekmeye gölge uyguluyoruz
   activeTab: { shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  // Metinlerin arkasına şeffaflık zorunluluğu getirildi
   tabText: { fontSize: 16, fontWeight: '600', backgroundColor: 'transparent' },
-
   formCard: {
     width: '100%',
     maxWidth: 320,
@@ -379,6 +381,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  // Metinlerin arkasına şeffaflık zorunluluğu getirildi
   primaryButtonText: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', backgroundColor: 'transparent' },
 });

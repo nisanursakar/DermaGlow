@@ -327,6 +327,15 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
   const renderOptions = (q: QuestionConfig) => {
     if (q.type === 'date') {
       const hasDate = answers.birthDate instanceof Date;
+
+      // Tarih seçilmişse dinamik olarak gösterilecek metni oluşturuyoruz
+      let dateText = t('onb_q2_placeholder');
+      if (hasDate) {
+        const d = answers.birthDate as Date;
+        // Örnek format: 15 Ağustos 1995
+        dateText = `${d.getDate()} ${t(`onb_month_${d.getMonth() + 1}`)} ${d.getFullYear()}`;
+      }
+
       return (
         <TouchableOpacity
           style={[
@@ -339,8 +348,8 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
           onPress={handleFakeDateSelect}
           activeOpacity={0.8}
         >
-          <Text style={[styles.datePickerText, { color: theme.textPrimary }]}>
-            {hasDate ? t('onb_q2_selected') : t('onb_q2_placeholder')}
+          <Text style={[styles.datePickerText, { color: hasDate ? theme.primary : theme.textPrimary }]}>
+            {dateText}
           </Text>
         </TouchableOpacity>
       );
@@ -423,10 +432,13 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-        <View>
+
+        {/* BAŞLIK ALANI: flex: 1 ve sağdan boşluk eklendi ki butonu dışarı itmesin */}
+        <View style={styles.headerTextContainer}>
           <Text style={[styles.smallTitle, { color: theme.textSecondary }]}>{t('onb_header_small')}</Text>
           <Text style={[styles.title, { color: theme.textPrimary }]}>{t('onb_header_title')}</Text>
         </View>
+
         <TouchableOpacity
           style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
           onPress={() => setLanguage(language === 'tr' ? 'en' : 'tr')}
@@ -640,106 +652,115 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                 <Text style={[styles.dateSheetTitle, { color: theme.textPrimary }]}>
                   {t('onb_q2_title')}
                 </Text>
+
                 <View style={[styles.dateColumns, { maxHeight: SCREEN_HEIGHT * 0.38 }]}>
+                  {/* GÜN SÜTUNU */}
                   <ScrollView
-                    style={styles.dateColumn}
+                    style={[styles.dateColumn, { flex: 1 }]}
                     showsVerticalScrollIndicator={true}
                     nestedScrollEnabled={true}
                   >
                     {days.map((d) => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[
-                      styles.dateItem,
-                      birthDay === d && { backgroundColor: theme.primary + '22' },
-                    ]}
-                    onPress={() => setBirthDay(d)}
+                      <TouchableOpacity
+                        key={d}
+                        style={[
+                          styles.dateItem,
+                          birthDay === d && { backgroundColor: theme.primary + '22' },
+                        ]}
+                        onPress={() => setBirthDay(d)}
+                      >
+                        <Text
+                          style={[
+                            styles.dateItemText,
+                            { color: birthDay === d ? theme.primary : theme.textPrimary },
+                          ]}
+                        >
+                          {d.toString().padStart(2, '0')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  {/* AY SÜTUNU */}
+                  <ScrollView
+                    style={[styles.dateColumn, { flex: 1.6, marginHorizontal: 8 }]}
+                    showsVerticalScrollIndicator={false}
+                    nestedScrollEnabled
                   >
-                    <Text
-                      style={[
-                        styles.dateItemText,
-                        { color: birthDay === d ? theme.primary : theme.textPrimary },
-                      ]}
-                    >
-                      {d.toString().padStart(2, '0')}
+                    {months.map((m) => (
+                      <TouchableOpacity
+                        key={m}
+                        style={[
+                          styles.dateItem,
+                          birthMonth === m && { backgroundColor: theme.primary + '22' },
+                        ]}
+                        onPress={() => setBirthMonth(m)}
+                      >
+                        <Text
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          style={[
+                            styles.dateItemText,
+                            { color: birthMonth === m ? theme.primary : theme.textPrimary },
+                          ]}
+                        >
+                          {t(`onb_month_${m}`)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  {/* YIL SÜTUNU */}
+                  <ScrollView
+                    style={[styles.dateColumn, { flex: 1 }]}
+                    showsVerticalScrollIndicator={false}
+                    nestedScrollEnabled
+                  >
+                    {years.map((y) => (
+                      <TouchableOpacity
+                        key={y}
+                        style={[
+                          styles.dateItem,
+                          birthYear === y && { backgroundColor: theme.primary + '22' },
+                        ]}
+                        onPress={() => setBirthYear(y)}
+                      >
+                        <Text
+                          style={[
+                            styles.dateItemText,
+                            { color: birthYear === y ? theme.primary : theme.textPrimary },
+                          ]}
+                        >
+                          {y}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.dateButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.dateSecondaryBtn}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text style={[styles.dateSecondaryText, { color: theme.textSecondary }]}>
+                      {t('cancel')}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <ScrollView
-                style={styles.dateColumn}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled
-              >
-                {months.map((m) => (
                   <TouchableOpacity
-                    key={m}
-                    style={[
-                      styles.dateItem,
-                      birthMonth === m && { backgroundColor: theme.primary + '22' },
-                    ]}
-                    onPress={() => setBirthMonth(m)}
+                    style={[styles.datePrimaryBtn, { backgroundColor: theme.primary }]}
+                    onPress={() => {
+                      if (birthDay && birthMonth && birthYear) {
+                        const date = new Date(birthYear, birthMonth - 1, birthDay);
+                        setAnswers((prev) => ({ ...prev, birthDate: date }));
+                        setShowDatePicker(false);
+                      }
+                    }}
                   >
-                    <Text
-                      style={[
-                        styles.dateItemText,
-                        { color: birthMonth === m ? theme.primary : theme.textPrimary },
-                      ]}
-                    >
-                      {t(`onb_month_${m}`)}
-                    </Text>
+                    <Text style={styles.datePrimaryText}>{t('ok')}</Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <ScrollView
-                style={styles.dateColumn}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled
-              >
-                {years.map((y) => (
-                  <TouchableOpacity
-                    key={y}
-                    style={[
-                      styles.dateItem,
-                      birthYear === y && { backgroundColor: theme.primary + '22' },
-                    ]}
-                    onPress={() => setBirthYear(y)}
-                  >
-                    <Text
-                      style={[
-                        styles.dateItemText,
-                        { color: birthYear === y ? theme.primary : theme.textPrimary },
-                      ]}
-                    >
-                      {y}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-            <View style={styles.dateButtonsRow}>
-              <TouchableOpacity
-                style={styles.dateSecondaryBtn}
-                onPress={() => setShowDatePicker(false)}
-              >
-                <Text style={[styles.dateSecondaryText, { color: theme.textSecondary }]}>
-                  {t('cancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.datePrimaryBtn, { backgroundColor: theme.primary }]}
-                onPress={() => {
-                  if (birthDay && birthMonth && birthYear) {
-                    const date = new Date(birthYear, birthMonth - 1, birthDay);
-                    setAnswers((prev) => ({ ...prev, birthDate: date }));
-                    setShowDatePicker(false);
-                  }
-                }}
-              >
-                <Text style={styles.datePrimaryText}>{t('ok')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                </View>
+              </View>
             </ScrollView>
           </View>
         </Modal>
@@ -757,6 +778,12 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 12,
   },
+
+  headerTextContainer: {
+    flex: 1,
+    marginRight: 1,
+  },
+
   langButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -864,6 +891,7 @@ const styles = StyleSheet.create({
   },
   datePickerText: {
     fontSize: 14,
+    fontWeight: '500',
   },
   footer: {
     paddingHorizontal: 8,
@@ -968,10 +996,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   dateSheet: {
-    width: '86%',
+    width: '120%', // Çerçeve taşmayı önlemek için güvenli sınıra çekildi
     alignSelf: 'center',
     borderRadius: 18,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     paddingVertical: 16,
   },
   dateSheetTitle: {
@@ -981,12 +1009,10 @@ const styles = StyleSheet.create({
   },
   dateColumns: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   dateColumn: {
-    width: '30%',
-    flex: 1,
     minHeight: 180,
   },
   dateItem: {
@@ -997,6 +1023,7 @@ const styles = StyleSheet.create({
   },
   dateItemText: {
     fontSize: 14,
+    textAlign: 'center',
   },
   dateButtonsRow: {
     flexDirection: 'row',
@@ -1022,4 +1049,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
