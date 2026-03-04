@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { supabase } from '../../supabase';
 import {
   View,
   Text,
@@ -41,8 +42,164 @@ const getTodayDateString = () => {
   return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
 };
 
+// Base64 -> ArrayBuffer çevirici (Supabase Storage için)
+const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+  const cleaned = base64.includes('base64,') ? base64.split('base64,')[1] : base64;
+  const binaryString = global.atob ? global.atob(cleaned) : atob(cleaned);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
 export default function CameraScreen() {
   const navigation = useNavigation<NavigationProp>();
+
+  // 1. Veritabanından geçmiş analizleri çekme
+  const fetchHistory = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('analysis_results')
+        .select('id, image_url, analysis_type, ai_feedback, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const formattedHistory: ExtendedHistoryItem[] = data.map((item: any) => {
+          // image_url Supabase Storage path'idir (ör: "<user_id>/123456.jpg")
+          let storagePath: string = item.image_url;
+          // Eğer yanlışlıkla bucket adıyla başlıyorsa, onu temizle
+          if (storagePath.startsWith('user_analysis_photos/')) {
+            storagePath = storagePath.replace('user_analysis_photos/', '');
+          }
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage
+            .from('user_analysis_photos')
+            .getPublicUrl(storagePath);
+
+          return {
+            id: String(item.id),
+            type: item.analysis_type as CameraMode,
+            date: new Date(item.created_at).toLocaleDateString('tr-TR', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            }),
+            score: item.ai_feedback?.score ?? 0,
+            improvement: 0,
+            imageUri: publicUrl,
+          };
+        });
+
+        console.log('Fetched History:', formattedHistory);
+        setHistory(formattedHistory);
+      }
+    } catch (error) {
+      console.error('Geçmiş yükleme hatası:', error);
+    }
+  }, []);
+
+  // 2. Uygulama açıldığında geçmişi çek
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  // 3. Fotoğrafı Supabase'e yükleme fonksiyonu
+  const uploadToSupabase = useCallback(
+    async (
+      file: { uri: string; base64?: string | null },
+      analysisMode: CameraMode
+    ): Promise<{ publicUrl: string; path: string } | null> => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const fileName = `${Date.now()}.jpg`;
+        const filePath = `${user.id}/${fileName}`;
+
+        // 1. Dosya içeriğini hazırlama
+        let uploadBody: ArrayBuffer | Blob;
+
+        if (file.base64) {
+          // Image Picker'dan gelen base64 verisini kullan
+          try {
+            uploadBody = base64ToArrayBuffer(file.base64);
+          } catch (e) {
+            console.error('Base64 dönüştürme hatası:', e);
+            Alert.alert('Hata', 'Fotoğraf verisi işlenemedi.');
+            return;
+          }
+        } else {
+          // Yedek yol: URI üzerinden fetch ile blob alma (hala mümkünse)
+          let normalizedUri = file.uri;
+          if (!normalizedUri.startsWith('file://') && !normalizedUri.startsWith('http')) {
+            normalizedUri = `file://${normalizedUri}`;
+          }
+
+          try {
+            const response = await fetch(normalizedUri);
+            const blob = await response.blob();
+            uploadBody = blob;
+          } catch (networkError) {
+            console.error('Network / fetch hatası:', networkError, 'URI:', normalizedUri);
+            Alert.alert('Hata', 'Fotoğraf okunurken bir ağ hatası oluştu.');
+            return;
+          }
+        }
+
+        // 1. Storage'a yükle (user_analysis_photos/<user_id>/<timestamp>.jpg)
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('user_analysis_photos')
+          .upload(filePath, uploadBody, { contentType: 'image/jpeg' });
+
+        if (storageError || !storageData) {
+          console.error('Storage yükleme hatası:', storageError);
+          Alert.alert('Hata', 'Fotoğraf buluta yüklenemedi.');
+          return null;
+        }
+
+        // 2. Veritabanına (analysis_results) kaydet
+        const { error: dbError } = await supabase.from('analysis_results').insert({
+          user_id: user.id,
+          image_url: storageData.path,
+          analysis_type: analysisMode,
+        });
+
+        if (dbError) {
+          console.error('Veritabanı kayıt hatası:', dbError);
+          Alert.alert('Hata', 'Analiz kaydı oluşturulamadı.');
+          return null;
+        }
+
+        const publicUrl = supabase.storage
+          .from('user_analysis_photos')
+          .getPublicUrl(storageData.path).data.publicUrl;
+
+        // 3. Geçmişi yenile ki tarihçede görünsün
+        fetchHistory();
+
+        return { publicUrl, path: storageData.path };
+      } catch (error) {
+        console.error('Yükleme hatası:', error);
+        Alert.alert('Hata', 'Fotoğraf kaydedilemedi.');
+        return null;
+      }
+    },
+    [fetchHistory]
+  );
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [mode, setMode] = useState<CameraMode>('skin');
@@ -76,7 +233,6 @@ export default function CameraScreen() {
     },
     [navigation]
   );
-
   const handleCapture = useCallback(async () => {
     const granted = await requestCameraPermission();
     if (!granted) {
@@ -91,18 +247,28 @@ export default function CameraScreen() {
     setCameraPermissionDenied(false);
     try {
       setAnalyzing(true);
-      const result = await launchCamera({
-        mediaType: 'photo',
-        cameraType: 'back',
-        quality: 0.8,
-        saveToPhotos: false,
-      });
+      const result = await launchCamera(
+        {
+          mediaType: 'photo',
+          cameraType: 'back',
+          quality: 0.8,
+          saveToPhotos: false,
+          includeBase64: true,
+        }
+      );
       if (result.didCancel || !result.assets?.[0]?.uri) {
         setAnalyzing(false);
         return;
       }
 
-      const photoUri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const photoUri = asset.uri!;
+      const uploadResult = await uploadToSupabase(
+        { uri: photoUri, base64: asset.base64 },
+        mode
+      );
+
+      const imagePublicUrl = uploadResult?.publicUrl ?? photoUri;
       const newScore = 70 + Math.floor(Math.random() * 20);
       const previousScore = history.length > 0 ? history[0].score : 70;
 
@@ -112,7 +278,7 @@ export default function CameraScreen() {
         date: getTodayDateString(),
         score: newScore,
         improvement: newScore - previousScore,
-        imageUri: photoUri,
+        imageUri: imagePublicUrl,
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -122,7 +288,7 @@ export default function CameraScreen() {
         type: newItem.type,
         score: newItem.score,
         previousScore: previousScore,
-        imageUri: photoUri,
+        imageUri: imagePublicUrl,
       });
     } catch (e) {
       Alert.alert(t('cameraPermissionTitle'), 'Fotoğraf çekilemedi.');
@@ -137,13 +303,22 @@ export default function CameraScreen() {
       const result = await launchImageLibrary({
         mediaType: 'photo',
         quality: 0.8,
+        includeBase64: true,
       });
       if (result.didCancel || !result.assets?.[0]?.uri) {
         setAnalyzing(false);
         return;
       }
 
-      const selectedImageUri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const selectedImageUri = asset.uri!;
+      const uploadResult = await uploadToSupabase(
+        { uri: selectedImageUri, base64: asset.base64 },
+        mode
+      );
+
+      const imagePublicUrl = uploadResult?.publicUrl ?? selectedImageUri;
+
       const newScore = 72 + Math.floor(Math.random() * 18);
       const previousScore = history.length > 0 ? history[0].score : 70;
 
@@ -153,7 +328,7 @@ export default function CameraScreen() {
         date: getTodayDateString(),
         score: newScore,
         improvement: newScore - previousScore,
-        imageUri: selectedImageUri,
+        imageUri: imagePublicUrl,
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -165,7 +340,7 @@ export default function CameraScreen() {
           type: newItem.type,
           score: newItem.score,
           previousScore: previousScore,
-          imageUri: selectedImageUri,
+          imageUri: imagePublicUrl,
         });
       }, 600);
     } catch (e) {
