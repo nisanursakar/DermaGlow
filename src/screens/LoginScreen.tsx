@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { supabase } from '../../supabase';
 import {
   View,
@@ -10,6 +10,8 @@ import {
   Image,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
@@ -33,6 +35,12 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const firstNameRef = useRef<TextInput>(null);
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   // SUPABASE HATALARINI YAKALAYIP ÇEVİREN SÜZGEÇ
   const getErrorMessage = (errorMsg: string) => {
@@ -124,8 +132,12 @@ export default function LoginScreen() {
   const brLarge = theme.borderRadiusLarge ?? 24;
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.langRow, { backgroundColor: theme.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <View style={[styles.langRow, styles.langRowFixed, { backgroundColor: theme.background }]}>
         <TouchableOpacity
           style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
           onPress={() => setLanguage(language === 'tr' ? 'en' : 'tr')}
@@ -139,9 +151,10 @@ export default function LoginScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 100 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
         <View style={[styles.logoSection, { backgroundColor: theme.background }]}>
           <Image
@@ -187,6 +200,7 @@ export default function LoginScreen() {
             {!isLogin && (
               <View style={styles.nameRow}>
                 <TextInput
+                  ref={firstNameRef}
                   style={[styles.input, styles.halfInput, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
                   placeholder={t('namePlaceholder')}
                   placeholderTextColor={theme.textSecondary}
@@ -194,8 +208,12 @@ export default function LoginScreen() {
                   onChangeText={setFirstName}
                   autoCapitalize="words"
                   autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => lastNameRef.current?.focus()}
+                  blurOnSubmit={false}
                 />
                 <TextInput
+                  ref={lastNameRef}
                   style={[styles.input, styles.halfInput, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
                   placeholder={t('surnamePlaceholder')}
                   placeholderTextColor={theme.textSecondary}
@@ -203,11 +221,15 @@ export default function LoginScreen() {
                   onChangeText={setLastName}
                   autoCapitalize="words"
                   autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
+                  blurOnSubmit={false}
                 />
               </View>
             )}
 
             <TextInput
+              ref={emailRef}
               style={[styles.input, { backgroundColor: theme.iconBg, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
               placeholder={t('emailPlaceholder')}
               placeholderTextColor={theme.textSecondary}
@@ -216,16 +238,23 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
             />
 
             <View style={[styles.passwordWrap, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40', borderRadius: br }]}>
               <TextInput
+                ref={passwordRef}
                 style={[styles.passwordInput, { color: theme.textPrimary }]}
                 placeholder={t('passwordPlaceholder')}
                 placeholderTextColor={theme.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                returnKeyType={isLogin ? 'done' : 'next'}
+                onSubmitEditing={isLogin ? () => { passwordRef.current?.blur(); handleLogin(); } : () => confirmPasswordRef.current?.focus()}
+                blurOnSubmit={isLogin}
               />
               <TouchableOpacity
                 style={styles.eyeButton}
@@ -268,12 +297,15 @@ export default function LoginScreen() {
               <>
                 <View style={[styles.passwordWrap, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40', borderRadius: br }]}>
                   <TextInput
+                    ref={confirmPasswordRef}
                     style={[styles.passwordInput, { color: theme.textPrimary }]}
                     placeholder={t('confirmPasswordPlaceholder')}
                     placeholderTextColor={theme.textSecondary}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirmPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={() => { confirmPasswordRef.current?.blur(); handleSignUp(); }}
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}
@@ -304,7 +336,7 @@ export default function LoginScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -316,6 +348,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 56,
     paddingBottom: 8,
+  },
+  langRowFixed: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   langButton: {
     flexDirection: 'row',
