@@ -21,7 +21,7 @@ const INITIAL_RIGHT = 20;
 const INITIAL_BOTTOM = 110;
 
 export default function AIFab() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { t } = useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [isHidden, setIsHidden] = useState(false);
@@ -123,8 +123,8 @@ export default function AIFab() {
         style={[
           styles.fab,
           {
-            backgroundColor: theme.cardBackground || '#FFFFFF',
-            borderColor: theme.primary || '#4B3B70',
+            backgroundColor: theme.cardBg,
+            borderColor: isDark ? theme.secondary : theme.primary,
           }
         ]}
         onPress={() => {
@@ -136,7 +136,7 @@ export default function AIFab() {
           }
         }}
       >
-        <Text style={[styles.textIcon, { color: theme.primary || '#4B3B70' }]}>AI</Text>
+        <Text style={[styles.textIcon, { color: isDark ? theme.secondary : theme.primary }]}>AI</Text>
       </TouchableOpacity>
     </Animated.View>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,21 +22,6 @@ import type { MainTabParamList } from '../navigation/BottomTabNavigator';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useUserProfile } from '../context/UserProfileContext';
-
-// Fallback theme for static styles (screen also uses context theme for container)
-const theme = {
-  background: '#F8F4FF',
-  headerBg: '#EFE8F6',
-  cardBackground: '#FFFFFF',
-  primaryPurple: '#4B3B70',
-  secondaryPurple: '#887DA2',
-  lightPurple: '#DDC9F3',
-  iconBg: '#F5E6FA',
-  textPrimary: '#4B3B70',
-  textSecondary: '#8B7FA8',
-  shadowColor: 'rgba(0,0,0,0.12)',
-  likedColor: '#FF6B9D',
-};
 
 // -----------------------------------------------------------------------------
 // Types
@@ -234,11 +219,15 @@ function CommentModal({
   post,
   onClose,
   onAddComment,
+  styles,
+  theme,
 }: {
   visible: boolean;
   post: CommunityPost | null;
   onClose: () => void;
   onAddComment: (postId: string, commentText: string) => void;
+  styles: ReturnType<typeof createChatScreenStyles>;
+  theme: ReturnType<typeof useTheme>['theme'];
 }) {
   const [newComment, setNewComment] = useState('');
 
@@ -311,10 +300,14 @@ function CreatePostModal({
   visible,
   onClose,
   onCreatePost,
+  styles,
+  theme,
 }: {
   visible: boolean;
   onClose: () => void;
   onCreatePost: (content: string, imageUri?: string) => void;
+  styles: ReturnType<typeof createChatScreenStyles>;
+  theme: ReturnType<typeof useTheme>['theme'];
 }) {
   const { t } = useLanguage();
   const [postText, setPostText] = useState('');
@@ -402,10 +395,12 @@ function CommunityPostCard({
   post,
   onLike,
   onComment,
+  styles,
 }: {
   post: CommunityPost;
   onLike: (postId: string) => void;
   onComment: (post: CommunityPost) => void;
+  styles: ReturnType<typeof createChatScreenStyles>;
 }) {
   return (
     <View style={styles.postCard}>
@@ -455,9 +450,11 @@ function CommunityPostCard({
 function MessageRow({
   item,
   onPress,
+  styles,
 }: {
   item: MessageItem;
   onPress: (userId: string, userName: string) => void;
+  styles: ReturnType<typeof createChatScreenStyles>;
 }) {
   return (
     <TouchableOpacity
@@ -572,8 +569,10 @@ export default function ChatScreen() {
     [navigation]
   );
 
+  const styles = useMemo(() => createChatScreenStyles(contextTheme), [contextTheme]);
+
   const renderPost: ListRenderItem<CommunityPost> = ({ item }) => (
-    <CommunityPostCard post={item} onLike={handleLike} onComment={handleComment} />
+    <CommunityPostCard post={item} onLike={handleLike} onComment={handleComment} styles={styles} />
   );
 
   const keyExtractor = (item: CommunityPost) => item.id;
@@ -608,7 +607,7 @@ export default function ChatScreen() {
     <View style={styles.messagesSection}>
       <Text style={styles.sectionTitle}>{t('messages')}</Text>
       {MESSAGES.map((m) => (
-        <MessageRow key={m.id} item={m} onPress={handleMessagePress} />
+        <MessageRow key={m.id} item={m} onPress={handleMessagePress} styles={styles} />
       ))}
       <View style={styles.bottomSpacing} />
     </View>
@@ -631,486 +630,492 @@ export default function ChatScreen() {
         post={selectedPost}
         onClose={() => setCommentModalVisible(false)}
         onAddComment={handleAddComment}
+        styles={styles}
+        theme={contextTheme}
       />
 
       <CreatePostModal
         visible={createPostModalVisible}
         onClose={() => setCreatePostModalVisible(false)}
         onCreatePost={handleCreatePost}
+        styles={styles}
+        theme={contextTheme}
       />
     </View>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Styles (Aynı)
+// Styles (tema ile karanlık mod uyumlu)
 // -----------------------------------------------------------------------------
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.background,
-  },
-  listContent: {
-    paddingBottom: 24,
-  },
-  header: {
-    backgroundColor: theme.headerBg,
-    paddingTop: 48,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerIcon: {
-    fontSize: 22,
-    marginRight: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.textPrimary,
-  },
-  searchContainer: {
-    backgroundColor: theme.headerBg,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  searchInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: theme.textPrimary,
-    shadowColor: theme.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionHeaderRow: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.textPrimary,
-  },
-  createPostButtonHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: theme.primaryPurple,
-    borderRadius: 16,
-  },
-  createPostButtonHeaderText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  postCard: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: theme.cardBackground,
-    shadowColor: theme.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  postHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.lightPurple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  postHeaderTextBlock: {
-    marginLeft: 10,
-  },
-  postUserName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.textPrimary,
-  },
-  postTime: {
-    fontSize: 12,
-    color: theme.textSecondary,
-    marginTop: 2,
-  },
-  postContent: {
-    fontSize: 14,
-    color: theme.textPrimary,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  postImage: {
-    width: '100%',
-    height: 250,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  postFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  postFooterLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  postFooterIcon: {
-    fontSize: 18,
-    marginRight: 4,
-  },
-  postFooterText: {
-    fontSize: 13,
-    color: theme.textSecondary,
-  },
-  postFooterTextLiked: {
-    color: theme.likedColor,
-    fontWeight: '600',
-  },
-  commentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  commentIcon: {
-    fontSize: 16,
-    marginRight: 4,
-  },
-  commentText: {
-    fontSize: 13,
-    color: theme.secondaryPurple,
-    fontWeight: '600',
-  },
-  messagesSection: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    backgroundColor: theme.cardBackground,
-    marginTop: 10,
-    shadowColor: theme.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  messageAvatarWrapper: {
-    marginRight: 12,
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#4CD964',
-    borderWidth: 2,
-    borderColor: theme.cardBackground,
-  },
-  messageContentBlock: {
-    flex: 1,
-  },
-  messageTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  messageUserName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.textPrimary,
-  },
-  messageTime: {
-    fontSize: 12,
-    color: theme.textSecondary,
-  },
-  messagePreview: {
-    fontSize: 13,
-    color: theme.textSecondary,
-    marginTop: 4,
-  },
-  messageBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  skinTypePill: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: theme.iconBg,
-  },
-  skinTypeText: {
-    fontSize: 11,
-    color: theme.textPrimary,
-    fontWeight: '600',
-  },
-  unreadBadge: {
-    marginLeft: 8,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: theme.primaryPurple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  bottomSpacing: {
-    height: 24,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.cardBackground,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0EBF5',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.textPrimary,
-  },
-  modalCloseButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: 24,
-    color: theme.textSecondary,
-  },
-  commentsList: {
-    maxHeight: 400,
-    paddingHorizontal: 20,
-  },
-  noCommentsText: {
-    textAlign: 'center',
-    color: theme.textSecondary,
-    marginTop: 40,
-    fontSize: 14,
-  },
-  commentItem: {
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0EBF5',
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.lightPurple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  commentAvatarText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  commentContent: {
-    flex: 1,
-  },
-  commentUserName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.textPrimary,
-    marginBottom: 2,
-  },
-  commentText: {
-    fontSize: 14,
-    color: theme.textPrimary,
-    lineHeight: 20,
-  },
-  commentTime: {
-    fontSize: 11,
-    color: theme.textSecondary,
-    marginTop: 4,
-  },
-  commentInputContainer: {
-    flexDirection: 'row',
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F0EBF5',
-    alignItems: 'flex-end',
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: theme.background,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: theme.textPrimary,
-    maxHeight: 100,
-    marginRight: 10,
-  },
-  sendButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: theme.primaryPurple,
-    borderRadius: 20,
-  },
-  sendButtonDisabled: {
-    backgroundColor: theme.lightPurple,
-  },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  createPostContent: {
-    padding: 20,
-    maxHeight: 500,
-  },
-  createPostInput: {
-    backgroundColor: theme.background,
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 15,
-    color: theme.textPrimary,
-    minHeight: 120,
-    marginBottom: 16,
-  },
-  imagePreviewContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  imagePreview: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeImageText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  pickImageButton: {
-    padding: 12,
-    backgroundColor: theme.background,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  pickImageText: {
-    fontSize: 14,
-    color: theme.primaryPurple,
-    fontWeight: '600',
-  },
-  createPostButton: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    paddingVertical: 14,
-    backgroundColor: theme.primaryPurple,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  createPostButtonDisabled: {
-    backgroundColor: theme.lightPurple,
-  },
-  createPostButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: theme.cardBackground,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E4F0',
-    paddingVertical: 10,
-    paddingBottom: 24,
-    paddingTop: 8,
-    shadowColor: theme.shadowColor,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  tabIcon: {
-    fontSize: 22,
-    marginBottom: 4,
-  },
-  tabLabel: {
-    fontSize: 11,
-    color: theme.textSecondary,
-    fontWeight: '500',
-  },
-  tabLabelActive: {
-    color: theme.primaryPurple,
-    fontWeight: '700',
-  },
-  tabActiveIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: '50%',
-    marginLeft: -20,
-    width: 40,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: theme.primaryPurple,
-  },
-});
+function createChatScreenStyles(theme: ReturnType<typeof useTheme>['theme']) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    listContent: {
+      paddingBottom: 24,
+    },
+    header: {
+      backgroundColor: theme.headerBg,
+      paddingTop: 48,
+      paddingBottom: 16,
+      paddingHorizontal: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    headerIcon: {
+      fontSize: 22,
+      marginRight: 10,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    searchContainer: {
+      backgroundColor: theme.headerBg,
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+    },
+    searchInput: {
+      backgroundColor: theme.cardBg,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: theme.textPrimary,
+      shadowColor: theme.shadowStrong,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    sectionHeaderRow: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    createPostButtonHeader: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      backgroundColor: theme.primary,
+      borderRadius: 16,
+    },
+    createPostButtonHeaderText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    postCard: {
+      marginHorizontal: 20,
+      marginBottom: 12,
+      padding: 16,
+      borderRadius: 18,
+      backgroundColor: theme.cardBg,
+      shadowColor: theme.shadowStrong,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    postHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    avatarCircle: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.lightPurple,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    postHeaderTextBlock: {
+      marginLeft: 10,
+    },
+    postUserName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    postTime: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginTop: 2,
+    },
+    postContent: {
+      fontSize: 14,
+      color: theme.textPrimary,
+      lineHeight: 20,
+      marginBottom: 12,
+    },
+    postImage: {
+      width: '100%',
+      height: 250,
+      borderRadius: 12,
+      marginBottom: 12,
+    },
+    postFooterRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    postFooterLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    postFooterIcon: {
+      fontSize: 18,
+      marginRight: 4,
+    },
+    postFooterText: {
+      fontSize: 13,
+      color: theme.textSecondary,
+    },
+    postFooterTextLiked: {
+      color: theme.accentPink,
+      fontWeight: '600',
+    },
+    commentButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    commentIcon: {
+      fontSize: 16,
+      marginRight: 4,
+    },
+    commentText: {
+      fontSize: 13,
+      color: theme.secondary,
+      fontWeight: '600',
+    },
+    messagesSection: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    messageRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 18,
+      backgroundColor: theme.cardBg,
+      marginTop: 10,
+      shadowColor: theme.shadowStrong,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+    messageAvatarWrapper: {
+      marginRight: 12,
+    },
+    onlineDot: {
+      position: 'absolute',
+      bottom: 2,
+      right: 2,
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: theme.success,
+      borderWidth: 2,
+      borderColor: theme.cardBg,
+    },
+    messageContentBlock: {
+      flex: 1,
+    },
+    messageTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    messageUserName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    messageTime: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    messagePreview: {
+      fontSize: 13,
+      color: theme.textSecondary,
+      marginTop: 4,
+    },
+    messageBottomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    skinTypePill: {
+      borderRadius: 12,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: theme.iconBg,
+    },
+    skinTypeText: {
+      fontSize: 11,
+      color: theme.textPrimary,
+      fontWeight: '600',
+    },
+    unreadBadge: {
+      marginLeft: 8,
+      minWidth: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    unreadBadgeText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    bottomSpacing: {
+      height: 24,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: theme.cardBg,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      maxHeight: '90%',
+      paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.textSecondary + '30',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    modalCloseButton: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalCloseText: {
+      fontSize: 24,
+      color: theme.textSecondary,
+    },
+    commentsList: {
+      maxHeight: 400,
+      paddingHorizontal: 20,
+    },
+    noCommentsText: {
+      textAlign: 'center',
+      color: theme.textSecondary,
+      marginTop: 40,
+      fontSize: 14,
+    },
+    commentItem: {
+      flexDirection: 'row',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.textSecondary + '30',
+    },
+    commentAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: theme.lightPurple,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    commentAvatarText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.textPrimary,
+    },
+    commentContent: {
+      flex: 1,
+    },
+    commentUserName: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.textPrimary,
+      marginBottom: 2,
+    },
+    commentText: {
+      fontSize: 14,
+      color: theme.textPrimary,
+      lineHeight: 20,
+    },
+    commentTime: {
+      fontSize: 11,
+      color: theme.textSecondary,
+      marginTop: 4,
+    },
+    commentInputContainer: {
+      flexDirection: 'row',
+      padding: 20,
+      borderTopWidth: 1,
+      borderTopColor: theme.textSecondary + '30',
+      alignItems: 'flex-end',
+    },
+    commentInput: {
+      flex: 1,
+      backgroundColor: theme.iconBg,
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: theme.textPrimary,
+      maxHeight: 100,
+      marginRight: 10,
+    },
+    sendButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      backgroundColor: theme.primary,
+      borderRadius: 20,
+    },
+    sendButtonDisabled: {
+      backgroundColor: theme.lightPurple,
+    },
+    sendButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    createPostContent: {
+      padding: 20,
+      maxHeight: 500,
+    },
+    createPostInput: {
+      backgroundColor: theme.iconBg,
+      borderRadius: 16,
+      padding: 16,
+      fontSize: 15,
+      color: theme.textPrimary,
+      minHeight: 120,
+      marginBottom: 16,
+    },
+    imagePreviewContainer: {
+      position: 'relative',
+      marginBottom: 16,
+    },
+    imagePreview: {
+      width: '100%',
+      height: 200,
+      borderRadius: 12,
+    },
+    removeImageButton: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    removeImageText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    pickImageButton: {
+      padding: 12,
+      backgroundColor: theme.iconBg,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    pickImageText: {
+      fontSize: 14,
+      color: theme.primary,
+      fontWeight: '600',
+    },
+    createPostButton: {
+      marginHorizontal: 20,
+      marginBottom: 20,
+      paddingVertical: 14,
+      backgroundColor: theme.primary,
+      borderRadius: 16,
+      alignItems: 'center',
+    },
+    createPostButtonDisabled: {
+      backgroundColor: theme.lightPurple,
+    },
+    createPostButtonText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    tabBar: {
+      flexDirection: 'row',
+      backgroundColor: theme.cardBg,
+      borderTopWidth: 1,
+      borderTopColor: theme.textSecondary + '40',
+      paddingVertical: 10,
+      paddingBottom: 24,
+      paddingTop: 8,
+      shadowColor: theme.shadowStrong,
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 8,
+    },
+    tabItem: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 4,
+    },
+    tabIcon: {
+      fontSize: 22,
+      marginBottom: 4,
+    },
+    tabLabel: {
+      fontSize: 11,
+      color: theme.textSecondary,
+      fontWeight: '500',
+    },
+    tabLabelActive: {
+      color: theme.primary,
+      fontWeight: '700',
+    },
+    tabActiveIndicator: {
+      position: 'absolute',
+      top: 0,
+      left: '50%',
+      marginLeft: -20,
+      width: 40,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: theme.primary,
+    },
+  });
+}

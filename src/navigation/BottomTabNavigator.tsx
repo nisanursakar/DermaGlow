@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Feather';
 
@@ -20,31 +21,49 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+// Tab bar arka planı her zaman güncel temayı kullansın (karanlık modda köşe uyumsuzluğu olmasın)
+function TabBarBackground() {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: theme.cardBg,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        borderTopWidth: 1,
+        borderTopColor: theme.textSecondary + '40',
+        shadowColor: theme.shadowStrong ?? '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 8,
+      }}
+    />
+  );
+}
+
 export default function BottomTabNavigator() {
   const { theme } = useTheme();
   const { t } = useLanguage();
 
   return (
     <Tab.Navigator
+      key={theme.cardBg}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: {
-          backgroundColor: theme.cardBg,
-          borderTopWidth: 1,
-          borderTopColor: theme.textSecondary + '40',
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
           paddingTop: 8,
           paddingBottom: 24,
           height: 70,
-          shadowColor: theme.shadow as string,
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 8,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
+          elevation: 0,
+          overflow: 'hidden',
         },
+        tabBarBackground: () => <TabBarBackground />,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '500',

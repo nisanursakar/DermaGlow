@@ -6,9 +6,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const DEFAULT_MORNING_TIME = '08:00';
 const DEFAULT_EVENING_TIME = '21:00';
@@ -43,6 +47,18 @@ function isValidTime(value: string): boolean {
   const h = parseInt(match[1], 10);
   const m = parseInt(match[2], 10);
   return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+}
+
+/** Parse "HH:mm" to { hour, minute }. Falls back to default if invalid. */
+function parseTime(value: string, defaultHour: number, defaultMinute: number): { hour: number; minute: number } {
+  if (!isValidTime(value)) return { hour: defaultHour, minute: defaultMinute };
+  const [h, m] = value.trim().split(':').map(Number);
+  return { hour: h, minute: m };
+}
+
+/** Format hour/minute to "HH:mm". */
+function formatTime(hour: number, minute: number): string {
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 }
 
 /** Builds 7 consecutive days starting from today. */
@@ -151,11 +167,34 @@ function RoutineCard({
   theme: ReturnType<typeof useTheme>['theme'];
   t: (key: string) => string;
 }) {
-  const [showCustomTime, setShowCustomTime] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [defaultHour, defaultMinute] = defaultTime.split(':').map(Number);
+  const parsed = parseTime(
+    newTaskTime && isValidTime(newTaskTime) ? newTaskTime : defaultTime,
+    defaultHour,
+    defaultMinute
+  );
+  const [pickerHour, setPickerHour] = useState(parsed.hour);
+  const [pickerMinute, setPickerMinute] = useState(parsed.minute);
   const total = tasks.length;
   const progressPercent = total === 0 ? 0 : Math.round((completedCount / total) * 100);
   const subtitle = `${completedCount}/${total} ${t('completedCount')}`;
   const displayTime = newTaskTime && isValidTime(newTaskTime) ? newTaskTime : defaultTime;
+
+  const openTimePicker = useCallback(() => {
+    const p = parseTime(displayTime, defaultHour, defaultMinute);
+    setPickerHour(p.hour);
+    setPickerMinute(p.minute);
+    setShowTimePicker(true);
+  }, [displayTime, defaultHour, defaultMinute]);
+
+  const confirmTimePicker = useCallback(() => {
+    onNewTaskTimeChange(formatTime(pickerHour, pickerMinute));
+    setShowTimePicker(false);
+  }, [pickerHour, pickerMinute, onNewTaskTimeChange]);
+
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   const handleAdd = useCallback(() => {
     const trimmed = newTaskTitle.trim();
@@ -213,56 +252,76 @@ function RoutineCard({
           <Text style={styles.addTaskButtonText}>{t('addButton')}</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.timeChipsRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeChipsContent}>
-          {timePresets.map((preset) => (
-            <TouchableOpacity
-              key={preset}
-              activeOpacity={0.8}
-              onPress={() => { onNewTaskTimeChange(preset); setShowCustomTime(false); }}
-              style={[
-                styles.timeChip,
-                { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40' },
-                displayTime === preset && { backgroundColor: theme.primaryLight ?? theme.primary, borderColor: theme.primary },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.timeChipText,
-                  { color: theme.textSecondary },
-                  displayTime === preset && { color: theme.textPrimary, fontWeight: '700' },
-                ]}
-              >
-                {preset}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={openTimePicker}
+        style={[styles.timeButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40' }]}
+      >
+        <Text style={styles.timeButtonIcon}>🕐</Text>
+        <Text style={[styles.timeButtonLabel, { color: theme.textSecondary }]}>{t('setTime')}</Text>
+        <Text style={[styles.timeButtonValue, { color: theme.primary }]}>{displayTime}</Text>
+      </TouchableOpacity>
+
+      {/* Saat seçici modal */}
+      <Modal visible={showTimePicker} transparent animationType="slide">
+        <View style={[styles.timePickerOverlay, { backgroundColor: theme.background + 'E6' }]}>
+          <View style={[styles.timePickerSheet, { backgroundColor: theme.cardBg }]}>
+            <Text style={[styles.timePickerTitle, { color: theme.textPrimary }]}>{t('setTime')}</Text>
+            <View style={styles.timePickerPreview}>
+              <Text style={[styles.timePickerPreviewText, { color: theme.textPrimary }]}>
+                {formatTime(pickerHour, pickerMinute)}
               </Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setShowCustomTime((v) => !v)}
-            style={[
-              styles.timeChip,
-              { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '40' },
-              showCustomTime && { backgroundColor: theme.lightPurple, borderColor: theme.primary },
-            ]}
-          >
-            <Text style={[styles.timeChipText, { color: theme.textSecondary }]}>{t('customTimeLabel')}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-      {showCustomTime && (
-        <View style={styles.customTimeRow}>
-          <TextInput
-            style={[styles.addTaskTimeInput, { backgroundColor: theme.background, color: theme.textPrimary, borderColor: theme.textSecondary + '40' }]}
-            placeholder={defaultTime}
-            placeholderTextColor={theme.textSecondary}
-            value={newTaskTime}
-            onChangeText={onNewTaskTimeChange}
-            maxLength={5}
-            keyboardType="numbers-and-punctuation"
-          />
+            </View>
+            <View style={[styles.timePickerWheels, { maxHeight: Dimensions.get('window').height * 0.26 }]}>
+              <ScrollView
+                style={styles.timePickerColumn}
+                contentContainerStyle={styles.timePickerColumnContent}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
+                {hours.map((h) => (
+                  <TouchableOpacity
+                    key={h}
+                    style={[styles.timePickerItem, pickerHour === h && { backgroundColor: theme.primary + '22' }]}
+                    onPress={() => setPickerHour(h)}
+                  >
+                    <Text style={[styles.timePickerItemText, { color: pickerHour === h ? theme.primary : theme.textPrimary }]}>
+                      {h.toString().padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={[styles.timePickerColon, { color: theme.textPrimary }]}>:</Text>
+              <ScrollView
+                style={styles.timePickerColumn}
+                contentContainerStyle={styles.timePickerColumnContent}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
+                {minutes.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.timePickerItem, pickerMinute === m && { backgroundColor: theme.primary + '22' }]}
+                    onPress={() => setPickerMinute(m)}
+                  >
+                    <Text style={[styles.timePickerItemText, { color: pickerMinute === m ? theme.primary : theme.textPrimary }]}>
+                      {m.toString().padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={styles.timePickerButtons}>
+              <TouchableOpacity style={styles.timePickerCancelBtn} onPress={() => setShowTimePicker(false)}>
+                <Text style={[styles.timePickerCancelText, { color: theme.textSecondary }]}>{t('cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.timePickerOkBtn, { backgroundColor: theme.primary }]} onPress={confirmTimePicker}>
+                <Text style={styles.timePickerOkText}>{t('save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      )}
+      </Modal>
 
       <View style={styles.taskList}>
         {tasks.map((task) => (
@@ -316,10 +375,34 @@ function createRoutineStyles(theme: ReturnType<typeof useTheme>['theme']) {
     addTaskTimeInput: { height: 40, backgroundColor: theme.background, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: theme.textPrimary, textAlign: 'center' as const, borderWidth: 1, minWidth: 80 },
     addTaskButton: { height: 44, justifyContent: 'center', paddingHorizontal: 16, backgroundColor: theme.primary, borderRadius: 12 },
     addTaskButtonText: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF' },
-    timeChipsRow: { marginBottom: 12 },
-    timeChipsContent: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-    timeChip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, marginRight: 8 },
-    timeChipText: { fontSize: 13, fontWeight: '600' as const },
+    timeButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    timeButtonIcon: { fontSize: 18, marginRight: 10 },
+    timeButtonLabel: { fontSize: 14, fontWeight: '600' as const, marginRight: 8 },
+    timeButtonValue: { fontSize: 16, fontWeight: '700' as const },
+    timePickerOverlay: { flex: 1, justifyContent: 'flex-end' },
+    timePickerSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
+    timePickerTitle: { fontSize: 16, fontWeight: '700' as const, marginBottom: 8, textAlign: 'center' as const },
+    timePickerPreview: { alignItems: 'center', marginBottom: 12 },
+    timePickerPreviewText: { fontSize: 36, fontWeight: '700' as const, letterSpacing: 2 },
+    timePickerWheels: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    timePickerColumn: { width: SCREEN_WIDTH * 0.18, maxHeight: 160 },
+    timePickerColumnContent: { paddingVertical: 4 },
+    timePickerItem: { paddingVertical: 8, alignItems: 'center', borderRadius: 10, marginVertical: 1 },
+    timePickerItemText: { fontSize: 17, fontWeight: '600' as const },
+    timePickerColon: { fontSize: 22, fontWeight: '700' as const, marginHorizontal: 6 },
+    timePickerButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+    timePickerCancelBtn: { paddingVertical: 12, paddingHorizontal: 20 },
+    timePickerCancelText: { fontSize: 16, fontWeight: '600' as const },
+    timePickerOkBtn: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 14 },
+    timePickerOkText: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF' },
     customTimeRow: { flexDirection: 'row', marginBottom: 8 },
     taskList: { flexDirection: 'column' },
     taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '30' },

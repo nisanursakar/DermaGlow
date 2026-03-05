@@ -136,10 +136,10 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
                     style={[
                       styles.flameIcon,
                       { backgroundColor: theme.iconBg },
-                      index < Math.round(waterProgress * 5) && { backgroundColor: theme.flameOrange ?? theme.primaryLight },
+                      index < Math.round(waterProgress * 5) && { backgroundColor: theme.waterBlue ?? theme.primaryLight },
                     ]}
                   >
-                    <Text style={styles.flameIconText}>🔥</Text>
+                    <Text style={styles.flameIconText}>💧</Text>
                   </View>
                 ))}
               </View>
