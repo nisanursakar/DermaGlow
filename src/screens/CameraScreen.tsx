@@ -347,6 +347,9 @@ export default function CameraScreen() {
     previewPlaceholderText: { fontSize: 16, color: theme.textSecondary, marginTop: 12 },
     previewHint: { fontSize: 12, color: theme.textSecondary, marginTop: 6 },
     captureSection: { marginHorizontal: 20, marginTop: 16 },
+    tipsCard: { marginHorizontal: 20, marginTop: 20, padding: 16, backgroundColor: theme.cardBg, borderRadius: theme.borderRadiusLarge, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+    tipsTitle: { fontSize: 16, fontWeight: '700', color: theme.primary, marginTop: 8, marginBottom: 10 },
+    tipItem: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
     historyCard: { marginHorizontal: 20, marginTop: 20, padding: 16, backgroundColor: theme.cardBg, borderRadius: theme.borderRadiusLarge, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
     historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
     historyTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: theme.primary, marginLeft: 8 },
@@ -413,6 +416,14 @@ export default function CameraScreen() {
 
         <View style={styles.captureSection}>
           <GradientButton title={t('takePhoto')} icon={<Icon name="camera" size={22} color="#FFF" />} onPress={handleCapture} disabled={analyzing} />
+        </View>
+
+        <View style={styles.tipsCard}>
+          <Icon name="star" size={18} color={theme.primary} />
+          <Text style={styles.tipsTitle}>{t('skinTipsTitle')}</Text>
+          {(mode === 'skin' ? [t('skinTip1'), t('skinTip2'), t('skinTip3')] : [t('scalpTip1'), t('scalpTip2'), t('scalpTip3')]).map((item, i) => (
+            <Text key={i} style={styles.tipItem}>• {item}</Text>
+          ))}
         </View>
 
         <View style={styles.historyCard}>
