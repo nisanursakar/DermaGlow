@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/Feather';
 import type { MainTabParamList } from '../navigation/BottomTabNavigator';
 import type { CameraMode } from '../constants/theme';
@@ -25,6 +24,8 @@ import OverlayGuide from '../components/OverlayGuide';
 import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
+
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
 // API Anahtarımızı güvenli dosyadan çekiyoruz
 import { GEMINI_API_KEY } from '../../secrets';
@@ -71,6 +72,14 @@ export default function CameraScreen() {
   const [history, setHistory] = useState<ExtendedHistoryItem[]>(INITIAL_HISTORY);
   const [analyzing, setAnalyzing] = useState(false);
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
+
+  const requestCameraPermission = useCallback(async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch { return false; }
+  }, []);
 
   // --- 1. VERİTABANINDAN GEÇMİŞİ ÇEKME ---
   const fetchHistory = useCallback(async () => {
@@ -148,7 +157,14 @@ export default function CameraScreen() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'API Hatası');
+      if (!response.ok) {
+        const is500 = response.status >= 500;
+        if (is500) throw new Error('SERVER_ERROR');
+        throw new Error(data.error?.message || 'API Hatası');
+      }
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Boş yanıt');
+      }
 
       let textResponse = data.candidates[0].content.parts[0].text;
       textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -160,7 +176,7 @@ export default function CameraScreen() {
       return parsedData;
     } catch (error) {
       console.error("Yapay Zeka Hatası:", error);
-      return { score: 65, issues: [{ name: 'Analiz Hatası', impact: 0 }], aiComment: 'Görsel işlenemedi. Daha aydınlık bir fotoğraf deneyin.' };
+      throw error;
     }
   };
 
@@ -187,32 +203,32 @@ export default function CameraScreen() {
           .from('user_analysis_photos')
           .upload(filePath, uploadBody, { contentType: 'image/jpeg' });
 
-        if (storageError || !storageData) return null;
+        if (storageError || !storageData) {
+          console.warn('Supabase storage upload:', storageError);
+          return null;
+        }
 
-        // YAPAY ZEKA SONUÇLARI VERİTABANINA YAZILIYOR
-        await supabase.from('analysis_results').insert({
+        const { error: insertError } = await supabase.from('analysis_results').insert({
           user_id: user.id,
           image_url: storageData.path,
           analysis_type: analysisMode,
-          ai_feedback: aiResult // Gemini sonuçları JSON olarak eklendi!
+          ai_feedback: aiResult
         });
+
+        if (insertError) {
+          console.warn('Supabase insert:', insertError);
+          return null;
+        }
 
         const publicUrl = supabase.storage.from('user_analysis_photos').getPublicUrl(storageData.path).data.publicUrl;
         fetchHistory();
         return { publicUrl, path: storageData.path };
       } catch (error) {
+        console.warn('uploadToSupabase:', error);
         return null;
       }
     }, [fetchHistory]
   );
-
-  const requestCameraPermission = useCallback(async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return true;
-    try {
-      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch { return false; }
-  }, []);
 
   const navigateToAnalysis = useCallback((params: any) => {
     navigation.getParent?.()?.navigate('AnalysisDetailScreen', params);
@@ -233,12 +249,8 @@ export default function CameraScreen() {
       setAnalyzing(true);
       const asset = result.assets[0];
 
-      // 1. Önce Yapay Zeka analiz etsin
       const aiResult = await analyzeWithRealAI(asset.base64, mode);
-
-      // 2. Sonra fotoğrafı ve AI sonucunu veritabanına kaydetsin
       const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
-
       const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
       const previousScore = history.length > 0 ? history[0].score : 70;
 
@@ -260,8 +272,19 @@ export default function CameraScreen() {
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
         imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
       });
-    } catch (e) { setAnalyzing(false); Alert.alert('Hata', 'Fotoğraf çekilemedi.'); }
-  }, [mode, history, navigateToAnalysis, requestCameraPermission, uploadToSupabase]);
+    } catch (e: any) {
+      setAnalyzing(false);
+      const message = e?.message;
+      if (message === 'SERVER_ERROR' || (typeof message === 'string' && message.includes('500'))) {
+        Alert.alert(
+          'Servis Hatası',
+          'Analiz servisi geçici olarak yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.'
+        );
+      } else {
+        Alert.alert('Hata', message || 'Fotoğraf çekilemedi veya analiz yapılamadı.');
+      }
+    }
+  }, [mode, history, requestCameraPermission, navigateToAnalysis, uploadToSupabase]);
 
   const handleGalleryPick = useCallback(async () => {
     try {
@@ -324,9 +347,6 @@ export default function CameraScreen() {
     previewPlaceholderText: { fontSize: 16, color: theme.textSecondary, marginTop: 12 },
     previewHint: { fontSize: 12, color: theme.textSecondary, marginTop: 6 },
     captureSection: { marginHorizontal: 20, marginTop: 16 },
-    tipsCard: { marginHorizontal: 20, marginTop: 20, padding: 16, backgroundColor: theme.cardBg, borderRadius: theme.borderRadiusLarge, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-    tipsTitle: { fontSize: 16, fontWeight: '700', color: theme.primary, marginTop: 8, marginBottom: 10 },
-    tipItem: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
     historyCard: { marginHorizontal: 20, marginTop: 20, padding: 16, backgroundColor: theme.cardBg, borderRadius: theme.borderRadiusLarge, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
     historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
     historyTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: theme.primary, marginLeft: 8 },
@@ -353,13 +373,16 @@ export default function CameraScreen() {
           <Icon name="camera-off" size={48} color={theme.secondary} />
           <Text style={styles.deniedTitle}>{t('cameraPermissionTitle')}</Text>
           <Text style={styles.deniedText}>{t('cameraPermissionMessage')}</Text>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => Linking.openSettings()}><Text style={styles.settingsButtonText}>{t('settings')}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => requestCameraPermission().then(g => g && setCameraPermissionDenied(false))}>
+            <Text style={styles.settingsButtonText}>Kameraya izin ver</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.settingsButton, { marginTop: 12, backgroundColor: theme.cardBg, borderWidth: 1, borderColor: theme.primary }]} onPress={() => Linking.openSettings()}>
+            <Text style={[styles.settingsButtonText, { color: theme.primary }]}>{t('settings')}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   }
-
-  const tipItems = mode === 'skin' ? [t('skinTip1'), t('skinTip2'), t('skinTip3')] : [t('scalpTip1'), t('scalpTip2'), t('scalpTip3')];
 
   return (
     <View style={styles.container}>
@@ -372,9 +395,11 @@ export default function CameraScreen() {
         <View style={styles.previewWrapper}>
           <View style={styles.cameraContainer}>
             <View style={styles.previewPlaceholder}>
-              <CameraOverlay mode={mode} /><OverlayGuide mode={mode} />
+              <CameraOverlay mode={mode} />
+              <OverlayGuide mode={mode} />
               <Icon name="camera" size={64} color={theme.lightPurple} />
-              <Text style={styles.previewPlaceholderText}>{t('cameraPreview')}</Text><Text style={styles.previewHint}>{t('takePhoto')}</Text>
+              <Text style={styles.previewPlaceholderText}>{t('cameraPreview')}</Text>
+              <Text style={styles.previewHint}>{t('takePhoto')}</Text>
             </View>
             {analyzing && (
               <View style={styles.loadingOverlay}>
@@ -388,11 +413,6 @@ export default function CameraScreen() {
 
         <View style={styles.captureSection}>
           <GradientButton title={t('takePhoto')} icon={<Icon name="camera" size={22} color="#FFF" />} onPress={handleCapture} disabled={analyzing} />
-        </View>
-
-        <View style={styles.tipsCard}>
-          <Icon name="star" size={18} color={theme.primary} /><Text style={styles.tipsTitle}>{t('skinTipsTitle')}</Text>
-          {tipItems.map((item, i) => <Text key={i} style={styles.tipItem}>• {item}</Text>)}
         </View>
 
         <View style={styles.historyCard}>
