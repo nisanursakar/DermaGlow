@@ -18,13 +18,16 @@
     "react": "19.2.0",
     "react-native": "0.83.1",
     "react-native-chart-kit": "^6.12.0",
+    "react-native-compressor": "^1.16.0",
+    "react-native-fs": "^2.20.0",
     "react-native-image-picker": "^7.1.2",
     "react-native-navigation-bar-color": "^2.0.2",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.20.0",
     "react-native-svg": "^15.8.0",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-vector-icons": "^10.2.0"
+    "react-native-vector-icons": "^10.2.0",
+    "react-native-vision-camera": "^4.7.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

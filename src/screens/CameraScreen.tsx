@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../../supabase';
 import {
   View,
@@ -12,7 +12,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/Feather';
 import type { MainTabParamList } from '../navigation/BottomTabNavigator';
@@ -25,9 +25,12 @@ import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
 
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+// CANLI KAMERA VE KOMPRESÖR
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import RNFS from 'react-native-fs';
+import { Image as ImageCompressor } from 'react-native-compressor';
+import { launchImageLibrary } from 'react-native-image-picker';
 
-// API Anahtarımızı güvenli dosyadan çekiyoruz
 import { GEMINI_API_KEY } from '../../secrets';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'CameraScreen'>;
@@ -51,7 +54,6 @@ const getTodayDateString = () => {
   return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
 };
 
-// Base64 -> ArrayBuffer çevirici (Supabase Storage için)
 const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   const cleaned = base64.includes('base64,') ? base64.split('base64,')[1] : base64;
   const binaryString = global.atob ? global.atob(cleaned) : atob(cleaned);
@@ -65,23 +67,25 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
 
 export default function CameraScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const isFocused = useIsFocused();
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [mode, setMode] = useState<CameraMode>('skin');
 
   const [history, setHistory] = useState<ExtendedHistoryItem[]>(INITIAL_HISTORY);
   const [analyzing, setAnalyzing] = useState(false);
-  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
-  const requestCameraPermission = useCallback(async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return true;
-    try {
-      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch { return false; }
-  }, []);
+  // CANLI KAMERA AYARLARI
+  const device = useCameraDevice('front');
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const cameraRef = useRef<Camera>(null);
 
-  // --- 1. VERİTABANINDAN GEÇMİŞİ ÇEKME ---
+  useEffect(() => {
+    if (!hasPermission) {
+      requestPermission();
+    }
+  }, [hasPermission, requestPermission]);
+
   const fetchHistory = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -106,7 +110,6 @@ export default function CameraScreen() {
             .from('user_analysis_photos')
             .getPublicUrl(storagePath);
 
-          // Veritabanından gelen AI sonuçlarını okuma
           const feedback = item.ai_feedback || {};
 
           return {
@@ -132,7 +135,6 @@ export default function CameraScreen() {
     fetchHistory();
   }, [fetchHistory]);
 
-  // --- 2. YAPAY ZEKA (GEMINI 2.5 FLASH) ANALİZ MOTORU ---
   const analyzeWithRealAI = async (base64Image: string, currentMode: CameraMode) => {
     try {
       const modeText = currentMode === 'skin' ? 'yüz/cilt' : 'saç derisi';
@@ -180,7 +182,6 @@ export default function CameraScreen() {
     }
   };
 
-  // --- 3. VERİTABANINA YÜKLEME (AI SONUÇLARIYLA BİRLİKTE) ---
   const uploadToSupabase = useCallback(async (file: { uri: string; base64?: string | null }, analysisMode: CameraMode, aiResult: any) => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -235,23 +236,38 @@ export default function CameraScreen() {
   }, [navigation]);
 
   const handleCapture = useCallback(async () => {
-    const granted = await requestCameraPermission();
-    if (!granted) {
-      setCameraPermissionDenied(true);
+    if (!hasPermission) {
+      Alert.alert('İzin Gerekli', 'Kamera izni vermeden fotoğraf çekemezsiniz.');
       return;
     }
-    setCameraPermissionDenied(false);
+    if (!cameraRef.current) return;
 
     try {
-      const result = await launchCamera({ mediaType: 'photo', cameraType: 'back', quality: 0.8, saveToPhotos: false, includeBase64: true });
-      if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) return;
+      // DÜZELTME: ÖNCE FOTOĞRAFI ÇEKİYORUZ! Kamera açıkken kareyi yakalamak zorundayız.
+      const photo = await cameraRef.current.takePhoto();
 
+      // FOTOĞRAFI ELİMİZE ALDIKTAN SONRA "YAPAY ZEKA ANALİZ EDİYOR" EKRANINI AÇIYORUZ
       setAnalyzing(true);
-      const asset = result.assets[0];
 
-      const aiResult = await analyzeWithRealAI(asset.base64, mode);
-      const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
-      const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
+      const photoPath = Platform.OS === 'android' && !photo.path.startsWith('file://')
+        ? `file://${photo.path}`
+        : photo.path;
+
+      const compressedUri = await ImageCompressor.compress(photoPath, {
+        maxWidth: 800,
+        quality: 0.7,
+      });
+
+      let cleanPath = compressedUri;
+      if (Platform.OS === 'android' && cleanPath.startsWith('file://')) {
+        cleanPath = cleanPath.replace('file://', '');
+      }
+
+      const base64Data = await RNFS.readFile(cleanPath, 'base64');
+
+      const aiResult = await analyzeWithRealAI(base64Data, mode);
+      const uploadResult = await uploadToSupabase({ uri: compressedUri, base64: base64Data }, mode, aiResult);
+      const imagePublicUrl = uploadResult?.publicUrl ?? compressedUri;
       const previousScore = history.length > 0 ? history[0].score : 70;
 
       const newItem: ExtendedHistoryItem = {
@@ -274,30 +290,36 @@ export default function CameraScreen() {
       });
     } catch (e: any) {
       setAnalyzing(false);
-      const message = e?.message;
-      if (message === 'SERVER_ERROR' || (typeof message === 'string' && message.includes('500'))) {
-        Alert.alert(
-          'Servis Hatası',
-          'Analiz servisi geçici olarak yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.'
-        );
+      const message = e?.message || JSON.stringify(e);
+      if (message.includes('SERVER_ERROR') || message.includes('500')) {
+        Alert.alert('Servis Hatası', 'Analiz servisi geçici olarak yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
+      } else if (message.includes('Quota')) {
+        Alert.alert('Erişim Engeli', 'Google API kotanız 0. Lütfen Google Cloud üzerinden projenize bir faturalandırma hesabı bağlayın.');
       } else {
-        Alert.alert('Hata', message || 'Fotoğraf çekilemedi veya analiz yapılamadı.');
+        Alert.alert('İşlem Başarısız', `Fotoğraf işlenemedi. Detay: ${message}`);
       }
     }
-  }, [mode, history, requestCameraPermission, navigateToAnalysis, uploadToSupabase]);
+  }, [mode, history, hasPermission, navigateToAnalysis, uploadToSupabase]);
 
   const handleGalleryPick = useCallback(async () => {
     try {
-      const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, includeBase64: true });
-      if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) return;
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.3,
+        includeBase64: true
+      });
+
+      if (result.didCancel) return;
+
+      if (!result.assets?.[0]?.uri || !result.assets?.[0]?.base64) {
+        Alert.alert('Hata', 'Fotoğraf işlenemedi. Lütfen tekrar deneyin.');
+        return;
+      }
 
       setAnalyzing(true);
       const asset = result.assets[0];
 
-      // 1. Önce Yapay Zeka analiz etsin
       const aiResult = await analyzeWithRealAI(asset.base64, mode);
-
-      // 2. Sonra fotoğrafı ve AI sonucunu veritabanına kaydetsin
       const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
 
       const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
@@ -321,7 +343,15 @@ export default function CameraScreen() {
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
         imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
       });
-    } catch (e) { setAnalyzing(false); Alert.alert('Hata', 'Galeri açılamadı.'); }
+    } catch (e: any) {
+      setAnalyzing(false);
+      const message = e?.message;
+      if (typeof message === 'string' && message.includes('Quota')) {
+        Alert.alert('Erişim Engeli', 'Google API kotanız 0. Lütfen Google Cloud üzerinden projenize bir faturalandırma hesabı bağlayın.');
+      } else {
+        Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı.');
+      }
+    }
   }, [mode, history, navigateToAnalysis, uploadToSupabase]);
 
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {
@@ -342,7 +372,7 @@ export default function CameraScreen() {
     headerTitle: { fontSize: 20, fontWeight: '700', color: theme.textPrimary, marginBottom: 4 },
     headerSubtitle: { fontSize: 13, color: theme.textSecondary, lineHeight: 18 },
     previewWrapper: { marginHorizontal: 20, marginTop: 20 },
-    cameraContainer: { width: '100%', aspectRatio: 3 / 4, borderRadius: theme.borderRadiusLarge, overflow: 'hidden', backgroundColor: theme.lightPurple, marginBottom: 12 },
+    cameraContainer: { width: '100%', aspectRatio: 3 / 4, borderRadius: theme.borderRadiusLarge, overflow: 'hidden', backgroundColor: theme.lightPurple, marginBottom: 12, position: 'relative' },
     previewPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     previewPlaceholderText: { fontSize: 16, color: theme.textSecondary, marginTop: 12 },
     previewHint: { fontSize: 12, color: theme.textSecondary, marginTop: 6 },
@@ -358,7 +388,7 @@ export default function CameraScreen() {
     emptyStateText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 22 },
     galleryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginTop: 20, paddingVertical: 14, backgroundColor: theme.cardBg, borderRadius: theme.borderRadius, borderWidth: 1, borderColor: theme.lightPurple },
     galleryButtonText: { fontSize: 14, color: theme.textSecondary, marginLeft: 8 },
-    loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', borderRadius: theme.borderRadiusLarge },
+    loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', borderRadius: theme.borderRadiusLarge, zIndex: 10 },
     loadingText: { marginTop: 16, fontSize: 16, color: '#FFF', fontWeight: '600' },
     bottomSpacing: { height: 24 },
     deniedCard: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
@@ -368,7 +398,7 @@ export default function CameraScreen() {
     settingsButtonText: { color: '#FFF', fontWeight: '700' },
   }), [theme]);
 
-  if (cameraPermissionDenied) {
+  if (!hasPermission) {
     return (
       <View style={styles.container}>
         <View style={styles.header}><Icon name="camera" size={24} color={theme.primary} /><Text style={styles.headerTitle}>{t('skinAnalysis')}</Text></View>
@@ -376,7 +406,7 @@ export default function CameraScreen() {
           <Icon name="camera-off" size={48} color={theme.secondary} />
           <Text style={styles.deniedTitle}>{t('cameraPermissionTitle')}</Text>
           <Text style={styles.deniedText}>{t('cameraPermissionMessage')}</Text>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => requestCameraPermission().then(g => g && setCameraPermissionDenied(false))}>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => requestPermission()}>
             <Text style={styles.settingsButtonText}>Kameraya izin ver</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.settingsButton, { marginTop: 12, backgroundColor: theme.cardBg, borderWidth: 1, borderColor: theme.primary }]} onPress={() => Linking.openSettings()}>
@@ -397,13 +427,26 @@ export default function CameraScreen() {
 
         <View style={styles.previewWrapper}>
           <View style={styles.cameraContainer}>
-            <View style={styles.previewPlaceholder}>
+            {device != null ? (
+              <Camera
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={isFocused && !analyzing}
+                photo={true}
+              />
+            ) : (
+              <View style={styles.previewPlaceholder}>
+                <Icon name="camera-off" size={64} color={theme.lightPurple} />
+                <Text style={styles.previewPlaceholderText}>Kamera Yükleniyor...</Text>
+              </View>
+            )}
+
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
               <CameraOverlay mode={mode} />
               <OverlayGuide mode={mode} />
-              <Icon name="camera" size={64} color={theme.lightPurple} />
-              <Text style={styles.previewPlaceholderText}>{t('cameraPreview')}</Text>
-              <Text style={styles.previewHint}>{t('takePhoto')}</Text>
             </View>
+
             {analyzing && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#FFF" />
