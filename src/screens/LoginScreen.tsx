@@ -42,12 +42,11 @@ export default function LoginScreen() {
   const passwordRef = useRef<TextInput>(null);
   const confirmPasswordRef = useRef<TextInput>(null);
 
-  // SUPABASE HATALARINI YAKALAYIP ÇEVİREN SÜZGEÇ
   const getErrorMessage = (errorMsg: string) => {
     if (errorMsg.includes('Invalid login credentials')) return t('authErrorInvalidCredentials');
     if (errorMsg.includes('already registered')) return t('authErrorAlreadyRegistered');
     if (errorMsg.includes('Password should be at least')) return t('resetPasswordErrorShort');
-    return errorMsg; // Eğer tanımadığımız başka bir hataysa orijinalini gösterir
+    return errorMsg;
   };
 
   const handleForgotPassword = async () => {
@@ -77,7 +76,6 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      // Hata süzgeçten geçip çevrilerek ekrana yansır
       Alert.alert(t('errorTitle'), getErrorMessage(error.message));
     } else {
       navigation.replace('MainTabs');
@@ -108,7 +106,6 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      // Hata süzgeçten geçip çevrilerek ekrana yansır
       Alert.alert(t('errorTitle'), getErrorMessage(error.message));
     } else {
       if (data.user) {
@@ -137,25 +134,26 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <View style={[styles.langRow, styles.langRowFixed, { backgroundColor: theme.background }]}>
-        <TouchableOpacity
-          style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
-          onPress={() => setLanguage(language === 'tr' ? 'en' : 'tr')}
-          activeOpacity={0.7}
-        >
-          <Icon name="globe" size={18} color={theme.primary} />
-          <Text style={[styles.langButtonText, { color: theme.primary }]}>
-            {language === 'tr' ? 'EN' : 'TR'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: 100 }]}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
+        {/* Dil Seçeneği artık ScrollView içinde, sayfayla birlikte hareket edecek */}
+        <View style={styles.langRow}>
+          <TouchableOpacity
+            style={[styles.langButton, { backgroundColor: theme.iconBg, borderColor: theme.textSecondary + '50' }]}
+            onPress={() => setLanguage(language === 'tr' ? 'en' : 'tr')}
+            activeOpacity={0.7}
+          >
+            <Icon name="globe" size={18} color={theme.primary} />
+            <Text style={[styles.langButtonText, { color: theme.primary }]}>
+              {language === 'tr' ? 'EN' : 'TR'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={[styles.logoSection, { backgroundColor: theme.background }]}>
           <Image
             source={require('../assets/images/logo.png')}
@@ -342,19 +340,18 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 48,
+  },
   langRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 8,
-  },
-  langRowFixed: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
+    width: '100%',
+    paddingTop: 56, // Üstten telefon çentik (notch) mesafesi
+    paddingBottom: 16,
   },
   langButton: {
     flexDirection: 'row',
@@ -366,20 +363,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   langButtonText: { fontSize: 15, fontWeight: '700' },
-  scrollContent: {
-    flexGrow: 1,
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 48,
-  },
   logoSection: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 24,
-    marginBottom: 12,
+    marginBottom: 24,
   },
   logo: { width: 140, height: 140, marginBottom: 10 },
   appName: { fontSize: 24, fontWeight: '700', letterSpacing: 0.5 },

@@ -10,7 +10,6 @@ import {
   Linking,
   ActivityIndicator,
   Platform,
-  PermissionsAndroid,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -20,12 +19,10 @@ import type { CameraMode } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import ModeToggle from '../components/ModeToggle';
-import OverlayGuide from '../components/OverlayGuide';
 import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
 
-// CANLI KAMERA VE KOMPRESÖR
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import { Image as ImageCompressor } from 'react-native-compressor';
@@ -44,6 +41,7 @@ export interface ExtendedHistoryItem extends HistoryItem {
   imageUri?: string;
   issues?: IssueType[];
   aiComment?: string;
+  timestamp: number;
 }
 
 const INITIAL_HISTORY: ExtendedHistoryItem[] = [];
@@ -74,16 +72,24 @@ export default function CameraScreen() {
 
   const [history, setHistory] = useState<ExtendedHistoryItem[]>(INITIAL_HISTORY);
   const [analyzing, setAnalyzing] = useState(false);
+  const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
 
-  // CANLI KAMERA AYARLARI
-  const device = useCameraDevice('front');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [filterRange, setFilterRange] = useState<'all' | '7days' | '30days' | 'custom'>('all');
+  const [sortType, setSortType] = useState<'date_desc' | 'date_asc' | 'score_desc' | 'score_asc'>('date_desc');
+  const [itemsPerPage, setItemsPerPage] = useState<number>(5);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const [customStartDate, setCustomStartDate] = useState<number | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<number | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
+  const device = useCameraDevice(cameraPosition);
   const { hasPermission, requestPermission } = useCameraPermission();
   const cameraRef = useRef<Camera>(null);
 
   useEffect(() => {
-    if (!hasPermission) {
-      requestPermission();
-    }
+    if (!hasPermission) requestPermission();
   }, [hasPermission, requestPermission]);
 
   const fetchHistory = useCallback(async () => {
@@ -100,30 +106,34 @@ export default function CameraScreen() {
       if (error) throw error;
 
       if (data) {
-        const formattedHistory: ExtendedHistoryItem[] = data.map((item: any) => {
+        const formattedHistory: ExtendedHistoryItem[] = data.map((item: any, index: number) => {
           let storagePath: string = item.image_url;
           if (storagePath.startsWith('user_analysis_photos/')) {
             storagePath = storagePath.replace('user_analysis_photos/', '');
           }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('user_analysis_photos')
-            .getPublicUrl(storagePath);
-
+          const { data: { publicUrl } } = supabase.storage.from('user_analysis_photos').getPublicUrl(storagePath);
           const feedback = item.ai_feedback || {};
+          const currentScore = Number(feedback.score) || 0;
+
+          let improvement = 0;
+          if (index < data.length - 1) {
+            const prevFeedback = data[index + 1].ai_feedback || {};
+            const prevScore = Number(prevFeedback.score) || 0;
+            improvement = currentScore - prevScore;
+          }
 
           return {
             id: String(item.id),
             type: item.analysis_type as CameraMode,
             date: new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
-            score: feedback.score ?? 0,
+            timestamp: new Date(item.created_at).getTime(),
+            score: currentScore,
             issues: feedback.issues ?? [],
             aiComment: feedback.aiComment ?? '',
-            improvement: 0,
+            improvement: improvement,
             imageUri: publicUrl,
           };
         });
-
         setHistory(formattedHistory);
       }
     } catch (error) {
@@ -131,20 +141,83 @@ export default function CameraScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const processedHistory = useMemo(() => {
+    let result = [...history];
+    const now = Date.now();
+
+    if (filterRange === '7days') {
+      result = result.filter(item => (now - item.timestamp) <= 7 * 24 * 60 * 60 * 1000);
+    } else if (filterRange === '30days') {
+      result = result.filter(item => (now - item.timestamp) <= 30 * 24 * 60 * 60 * 1000);
+    } else if (filterRange === 'custom' && customStartDate && customEndDate) {
+      const endOfDay = new Date(customEndDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      result = result.filter(item => item.timestamp >= customStartDate && item.timestamp <= endOfDay.getTime());
+    }
+
+    result.sort((a, b) => {
+      if (sortType === 'date_desc') return b.timestamp - a.timestamp;
+      if (sortType === 'date_asc') return a.timestamp - b.timestamp;
+      if (sortType === 'score_desc') return b.score - a.score;
+      if (sortType === 'score_asc') return a.score - b.score;
+      return 0;
+    });
+
+    return result;
+  }, [history, sortType, filterRange, customStartDate, customEndDate]);
+
+  const totalPages = Math.max(1, Math.ceil(processedHistory.length / itemsPerPage));
+  const paginatedHistory = processedHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => { setCurrentPage(1); }, [sortType, filterRange, itemsPerPage, customStartDate, customEndDate]);
+
+  const changeMonth = (offset: number) => {
+    setCalendarMonth(prev => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() + offset);
+      return next;
+    });
+  };
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+
+    const days: (number | null)[] = [];
+    for (let i = 0; i < startOffset; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i).getTime());
+    return days;
+  }, [calendarMonth]);
+
+  const handleDayPress = (timestamp: number) => {
+    if (!customStartDate || (customStartDate && customEndDate)) {
+      setCustomStartDate(timestamp);
+      setCustomEndDate(null);
+    } else if (timestamp < customStartDate) {
+      setCustomStartDate(timestamp);
+      setCustomEndDate(null);
+    } else {
+      setCustomEndDate(timestamp);
+    }
+  };
 
   const analyzeWithRealAI = async (base64Image: string, currentMode: CameraMode) => {
     try {
       const modeText = currentMode === 'skin' ? 'yüz/cilt' : 'saç derisi';
-      const prompt = `Sen uzman bir dermatologsun. Ekteki ${modeText} fotoğrafını detaylıca incele. Lütfen bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (\`\`\`) kullanma. Sadece saf JSON objesi döndür:
+
+      // YAPAY ZEKA PROMPTU GÜNCELLENDİ (Rastgeleliği önledik, net puan istedik)
+      const prompt = `Sen uzman bir dermatologsun. Ekteki ${modeText} fotoğrafını detaylıca incele. Lütfen bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. RASTGELE SAYILAR KULLANMA, fotoğraftaki duruma bakarak GERÇEKÇİ bir puanlama yap. Başka hiçbir açıklama veya markdown tırnak işareti (\`\`\`) kullanma. Sadece saf JSON objesi döndür:
       {
-        "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
+        "score": <Kusurların yoğunluğuna göre 0 ile 100 arasında hesapladığın GERÇEKÇİ genel sağlık puanı (sadece sayı)>,
         "issues": [
-          { "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce)>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }
+          { "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce, Kepek)>", "impact": <0 ile 100 arası genel sağlığa olumsuz etki yüzdesi (sadece sayı)> }
         ],
-        "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
+        "aiComment": "<Kullanıcının mevcut durumuna özel, Türkçe, samimi ve detaylı dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
       }`;
 
       const requestBody = {
@@ -153,20 +226,11 @@ export default function CameraScreen() {
       };
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
-      if (!response.ok) {
-        const is500 = response.status >= 500;
-        if (is500) throw new Error('SERVER_ERROR');
-        throw new Error(data.error?.message || 'API Hatası');
-      }
-      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error('Boş yanıt');
-      }
+      if (!response.ok) throw new Error(data.error?.message || 'API Hatası');
 
       let textResponse = data.candidates[0].content.parts[0].text;
       textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -177,7 +241,6 @@ export default function CameraScreen() {
       }
       return parsedData;
     } catch (error) {
-      console.error("Yapay Zeka Hatası:", error);
       throw error;
     }
   };
@@ -186,7 +249,6 @@ export default function CameraScreen() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return null;
-
         const fileName = `${Date.now()}.jpg`;
         const filePath = `${user.id}/${fileName}`;
         let uploadBody: ArrayBuffer | Blob;
@@ -200,34 +262,18 @@ export default function CameraScreen() {
           uploadBody = await response.blob();
         }
 
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('user_analysis_photos')
-          .upload(filePath, uploadBody, { contentType: 'image/jpeg' });
-
-        if (storageError || !storageData) {
-          console.warn('Supabase storage upload:', storageError);
-          return null;
-        }
+        const { data: storageData, error: storageError } = await supabase.storage.from('user_analysis_photos').upload(filePath, uploadBody, { contentType: 'image/jpeg' });
+        if (storageError || !storageData) return null;
 
         const { error: insertError } = await supabase.from('analysis_results').insert({
-          user_id: user.id,
-          image_url: storageData.path,
-          analysis_type: analysisMode,
-          ai_feedback: aiResult
+          user_id: user.id, image_url: storageData.path, analysis_type: analysisMode, ai_feedback: aiResult
         });
 
-        if (insertError) {
-          console.warn('Supabase insert:', insertError);
-          return null;
-        }
-
+        if (insertError) return null;
         const publicUrl = supabase.storage.from('user_analysis_photos').getPublicUrl(storageData.path).data.publicUrl;
         fetchHistory();
         return { publicUrl, path: storageData.path };
-      } catch (error) {
-        console.warn('uploadToSupabase:', error);
-        return null;
-      }
+      } catch (error) { return null; }
     }, [fetchHistory]
   );
 
@@ -236,132 +282,77 @@ export default function CameraScreen() {
   }, [navigation]);
 
   const handleCapture = useCallback(async () => {
-    if (!hasPermission) {
-      Alert.alert('İzin Gerekli', 'Kamera izni vermeden fotoğraf çekemezsiniz.');
-      return;
-    }
-    if (!cameraRef.current) return;
-
+    if (!hasPermission || !cameraRef.current) return;
     try {
-      // DÜZELTME: ÖNCE FOTOĞRAFI ÇEKİYORUZ! Kamera açıkken kareyi yakalamak zorundayız.
       const photo = await cameraRef.current.takePhoto();
-
-      // FOTOĞRAFI ELİMİZE ALDIKTAN SONRA "YAPAY ZEKA ANALİZ EDİYOR" EKRANINI AÇIYORUZ
       setAnalyzing(true);
-
-      const photoPath = Platform.OS === 'android' && !photo.path.startsWith('file://')
-        ? `file://${photo.path}`
-        : photo.path;
-
-      const compressedUri = await ImageCompressor.compress(photoPath, {
-        maxWidth: 800,
-        quality: 0.7,
-      });
-
+      const photoPath = Platform.OS === 'android' && !photo.path.startsWith('file://') ? `file://${photo.path}` : photo.path;
+      const compressedUri = await ImageCompressor.compress(photoPath, { maxWidth: 800, quality: 0.7 });
       let cleanPath = compressedUri;
-      if (Platform.OS === 'android' && cleanPath.startsWith('file://')) {
-        cleanPath = cleanPath.replace('file://', '');
-      }
+      if (Platform.OS === 'android' && cleanPath.startsWith('file://')) cleanPath = cleanPath.replace('file://', '');
 
       const base64Data = await RNFS.readFile(cleanPath, 'base64');
-
       const aiResult = await analyzeWithRealAI(base64Data, mode);
       const uploadResult = await uploadToSupabase({ uri: compressedUri, base64: base64Data }, mode, aiResult);
       const imagePublicUrl = uploadResult?.publicUrl ?? compressedUri;
-      const previousScore = history.length > 0 ? history[0].score : 70;
+
+      const currentScore = Number(aiResult.score) || 0;
+      const previousScore = history.length > 0 ? history[0].score : currentScore;
 
       const newItem: ExtendedHistoryItem = {
-        id: `new-${Date.now()}`,
-        type: mode,
-        date: getTodayDateString(),
-        score: aiResult.score,
-        improvement: aiResult.score - previousScore,
-        imageUri: imagePublicUrl,
-        issues: aiResult.issues,
-        aiComment: aiResult.aiComment
+        id: `new-${Date.now()}`, type: mode, date: getTodayDateString(), timestamp: Date.now(),
+        score: currentScore, improvement: currentScore - previousScore, imageUri: imagePublicUrl,
+        issues: aiResult.issues, aiComment: aiResult.aiComment
       };
 
       setHistory(prev => [newItem, ...prev]);
       setAnalyzing(false);
-
-      navigateToAnalysis({
-        analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
-        imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
-      });
+      navigateToAnalysis({ analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore, imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment });
     } catch (e: any) {
       setAnalyzing(false);
-      const message = e?.message || JSON.stringify(e);
-      if (message.includes('SERVER_ERROR') || message.includes('500')) {
-        Alert.alert('Servis Hatası', 'Analiz servisi geçici olarak yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
-      } else if (message.includes('Quota')) {
-        Alert.alert('Erişim Engeli', 'Google API kotanız 0. Lütfen Google Cloud üzerinden projenize bir faturalandırma hesabı bağlayın.');
-      } else {
-        Alert.alert('İşlem Başarısız', `Fotoğraf işlenemedi. Detay: ${message}`);
-      }
+      Alert.alert('İşlem Başarısız', `Fotoğraf işlenemedi. Detay: ${e?.message || JSON.stringify(e)}`);
     }
   }, [mode, history, hasPermission, navigateToAnalysis, uploadToSupabase]);
 
   const handleGalleryPick = useCallback(async () => {
     try {
-      const result = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 0.3,
-        includeBase64: true
-      });
-
-      if (result.didCancel) return;
-
-      if (!result.assets?.[0]?.uri || !result.assets?.[0]?.base64) {
-        Alert.alert('Hata', 'Fotoğraf işlenemedi. Lütfen tekrar deneyin.');
-        return;
-      }
+      const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.3, includeBase64: true });
+      if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) return;
 
       setAnalyzing(true);
       const asset = result.assets[0];
-
       const aiResult = await analyzeWithRealAI(asset.base64, mode);
       const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
-
       const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
-      const previousScore = history.length > 0 ? history[0].score : 70;
+
+      const currentScore = Number(aiResult.score) || 0;
+      const previousScore = history.length > 0 ? history[0].score : currentScore;
 
       const newItem: ExtendedHistoryItem = {
-        id: `gallery-${Date.now()}`,
-        type: mode,
-        date: getTodayDateString(),
-        score: aiResult.score,
-        improvement: aiResult.score - previousScore,
-        imageUri: imagePublicUrl,
-        issues: aiResult.issues,
-        aiComment: aiResult.aiComment
+        id: `gallery-${Date.now()}`, type: mode, date: getTodayDateString(), timestamp: Date.now(),
+        score: currentScore, improvement: currentScore - previousScore, imageUri: imagePublicUrl,
+        issues: aiResult.issues, aiComment: aiResult.aiComment
       };
 
       setHistory(prev => [newItem, ...prev]);
       setAnalyzing(false);
-
-      navigateToAnalysis({
-        analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
-        imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
-      });
+      navigateToAnalysis({ analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore, imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment });
     } catch (e: any) {
       setAnalyzing(false);
-      const message = e?.message;
-      if (typeof message === 'string' && message.includes('Quota')) {
-        Alert.alert('Erişim Engeli', 'Google API kotanız 0. Lütfen Google Cloud üzerinden projenize bir faturalandırma hesabı bağlayın.');
-      } else {
-        Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı.');
-      }
+      Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı.');
     }
   }, [mode, history, navigateToAnalysis, uploadToSupabase]);
 
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {
-    navigation.getParent?.()?.navigate('AnalysisDetailScreen', {
+    navigateToAnalysis({
       analysisId: item.id, type: item.type, score: item.score, previousScore: item.score - (item.improvement || 0),
       imageUri: item.imageUri, issues: item.issues, aiComment: item.aiComment
     });
-  }, [navigation]);
+  }, [navigateToAnalysis]);
 
-  const handleSeeAllHistory = useCallback(() => { if (history.length > 0) handleHistoryItemPress(history[0]); }, [history, handleHistoryItemPress]);
+  const toggleCameraPosition = useCallback(() => {
+    setCameraPosition((prev) => (prev === 'front' ? 'back' : 'front'));
+  }, []);
 
   const styles = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
@@ -375,20 +366,46 @@ export default function CameraScreen() {
     cameraContainer: { width: '100%', aspectRatio: 3 / 4, borderRadius: theme.borderRadiusLarge, overflow: 'hidden', backgroundColor: theme.lightPurple, marginBottom: 12, position: 'relative' },
     previewPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     previewPlaceholderText: { fontSize: 16, color: theme.textSecondary, marginTop: 12 },
-    previewHint: { fontSize: 12, color: theme.textSecondary, marginTop: 6 },
+    flipButton: { position: 'absolute', top: 16, right: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', zIndex: 20 },
     captureSection: { marginHorizontal: 20, marginTop: 16 },
+    galleryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, paddingVertical: 14, backgroundColor: theme.cardBg, borderRadius: theme.borderRadius, borderWidth: 1, borderColor: theme.lightPurple },
+    galleryButtonText: { fontSize: 14, color: theme.textSecondary, marginLeft: 8 },
     tipsCard: { marginHorizontal: 20, marginTop: 20, padding: 16, backgroundColor: theme.cardBg, borderRadius: theme.borderRadiusLarge, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
     tipsTitle: { fontSize: 16, fontWeight: '700', color: theme.primary, marginTop: 8, marginBottom: 10 },
     tipItem: { fontSize: 13, color: theme.textSecondary, marginBottom: 4 },
     historyCard: { marginHorizontal: 20, marginTop: 20, padding: 16, backgroundColor: theme.cardBg, borderRadius: theme.borderRadiusLarge, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-    historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-    historyTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: theme.primary, marginLeft: 8 },
-    seeAllText: { fontSize: 13, fontWeight: '600', color: theme.secondary },
+    historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    historyTitleWrap: { flexDirection: 'row', alignItems: 'center' },
+    historyTitle: { fontSize: 16, fontWeight: '700', color: theme.primary, marginLeft: 8 },
+    filterToggleBtn: { padding: 8, backgroundColor: theme.iconBg, borderRadius: 10 },
+    filterMenuContainer: { backgroundColor: theme.iconBg, borderRadius: 16, padding: 16, marginBottom: 16 },
+    filterSectionTitle: { fontSize: 13, fontWeight: '700', color: theme.textSecondary, marginBottom: 8, marginTop: 4 },
+    filterScroll: { paddingBottom: 8 },
+    filterPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border, marginRight: 8 },
+    filterPillActive: { backgroundColor: theme.primary, borderColor: theme.primary },
+    filterPillText: { fontSize: 12, color: theme.textPrimary, fontWeight: '600' },
+    filterPillTextActive: { color: '#FFF' },
+    calendarContainer: { marginTop: 12, backgroundColor: theme.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border },
+    calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    calendarMonthText: { fontSize: 14, fontWeight: '700', color: theme.textPrimary },
+    calendarWeekDays: { flexDirection: 'row', marginBottom: 8 },
+    calendarWeekDayText: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+    calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    calendarCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', marginVertical: 2 },
+    calendarCellSelected: { backgroundColor: theme.primary, borderRadius: 20 },
+    calendarCellBetween: { backgroundColor: theme.primary + '30', borderRadius: 8 },
+    calendarCellText: { fontSize: 13, color: theme.textPrimary, fontWeight: '500' },
+    calendarCellTextSelected: { color: '#FFF', fontWeight: '700' },
+    calendarInfoText: { textAlign: 'center', marginTop: 12, fontSize: 13, color: theme.primary, fontWeight: '600' },
+    applyFilterBtn: { marginTop: 16, backgroundColor: theme.primary, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    applyFilterBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
     emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, paddingHorizontal: 16 },
     emptyStateText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 22 },
-    galleryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginTop: 20, paddingVertical: 14, backgroundColor: theme.cardBg, borderRadius: theme.borderRadius, borderWidth: 1, borderColor: theme.lightPurple },
-    galleryButtonText: { fontSize: 14, color: theme.textSecondary, marginLeft: 8 },
-    loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', borderRadius: theme.borderRadiusLarge, zIndex: 10 },
+    paginationContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.border },
+    pageBtn: { padding: 10, backgroundColor: theme.iconBg, borderRadius: 12 },
+    pageBtnDisabled: { opacity: 0.3 },
+    pageText: { fontSize: 14, fontWeight: '600', color: theme.textPrimary, marginHorizontal: 20 },
+    loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', borderRadius: theme.borderRadiusLarge, zIndex: 30 },
     loadingText: { marginTop: 16, fontSize: 16, color: '#FFF', fontWeight: '600' },
     bottomSpacing: { height: 24 },
     deniedCard: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
@@ -397,25 +414,6 @@ export default function CameraScreen() {
     settingsButton: { paddingVertical: 12, paddingHorizontal: 24, backgroundColor: theme.primary, borderRadius: theme.borderRadius },
     settingsButtonText: { color: '#FFF', fontWeight: '700' },
   }), [theme]);
-
-  if (!hasPermission) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}><Icon name="camera" size={24} color={theme.primary} /><Text style={styles.headerTitle}>{t('skinAnalysis')}</Text></View>
-        <View style={styles.deniedCard}>
-          <Icon name="camera-off" size={48} color={theme.secondary} />
-          <Text style={styles.deniedTitle}>{t('cameraPermissionTitle')}</Text>
-          <Text style={styles.deniedText}>{t('cameraPermissionMessage')}</Text>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => requestPermission()}>
-            <Text style={styles.settingsButtonText}>Kameraya izin ver</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.settingsButton, { marginTop: 12, backgroundColor: theme.cardBg, borderWidth: 1, borderColor: theme.primary }]} onPress={() => Linking.openSettings()}>
-            <Text style={[styles.settingsButtonText, { color: theme.primary }]}>{t('settings')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -428,25 +426,19 @@ export default function CameraScreen() {
         <View style={styles.previewWrapper}>
           <View style={styles.cameraContainer}>
             {device != null ? (
-              <Camera
-                ref={cameraRef}
-                style={StyleSheet.absoluteFill}
-                device={device}
-                isActive={isFocused && !analyzing}
-                photo={true}
-              />
+              <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={isFocused && !analyzing} photo={true} />
             ) : (
               <View style={styles.previewPlaceholder}>
                 <Icon name="camera-off" size={64} color={theme.lightPurple} />
                 <Text style={styles.previewPlaceholderText}>Kamera Yükleniyor...</Text>
               </View>
             )}
-
-            <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              <CameraOverlay mode={mode} />
-              <OverlayGuide mode={mode} />
-            </View>
-
+            <View style={StyleSheet.absoluteFill} pointerEvents="none"><CameraOverlay mode={mode} /></View>
+            {device != null && !analyzing && (
+              <TouchableOpacity style={styles.flipButton} onPress={toggleCameraPosition} activeOpacity={0.7}>
+                <Icon name="refresh-ccw" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
             {analyzing && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#FFF" />
@@ -459,6 +451,10 @@ export default function CameraScreen() {
 
         <View style={styles.captureSection}>
           <GradientButton title={t('takePhoto')} icon={<Icon name="camera" size={22} color="#FFF" />} onPress={handleCapture} disabled={analyzing} />
+          <TouchableOpacity style={styles.galleryButton} onPress={handleGalleryPick} disabled={analyzing}>
+            <Icon name="image" size={20} color={theme.textSecondary} />
+            <Text style={styles.galleryButtonText}>{t('selectFromGallery')}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.tipsCard}>
@@ -471,22 +467,111 @@ export default function CameraScreen() {
 
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
-            <Icon name="image" size={20} color={theme.primary} /><Text style={styles.historyTitle}>{t('analysisHistory')}</Text>
-            {history.length > 0 && <TouchableOpacity onPress={handleSeeAllHistory}><Text style={styles.seeAllText}>{t('seeAll')}</Text></TouchableOpacity>}
+            <View style={styles.historyTitleWrap}>
+              <Icon name="image" size={20} color={theme.primary} />
+              <Text style={styles.historyTitle}>{t('analysisHistory')}</Text>
+            </View>
+            {history.length > 0 && (
+              <TouchableOpacity style={[styles.filterToggleBtn, showFilterMenu && { backgroundColor: theme.primary }]} onPress={() => setShowFilterMenu(!showFilterMenu)}>
+                <Icon name="sliders" size={20} color={showFilterMenu ? '#FFF' : theme.textPrimary} />
+              </TouchableOpacity>
+            )}
           </View>
-          {history.length === 0 ? (
+
+          {showFilterMenu && (
+            <View style={styles.filterMenuContainer}>
+              <Text style={styles.filterSectionTitle}>Tarih Aralığı</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                {[
+                  { id: 'all', label: 'Tüm Zamanlar' },
+                  { id: '7days', label: 'Son 7 Gün' },
+                  { id: '30days', label: 'Son 30 Gün' },
+                  { id: 'custom', label: 'Özel Tarih Seç' }
+                ].map((f) => (
+                  <TouchableOpacity key={f.id} style={[styles.filterPill, filterRange === f.id && styles.filterPillActive]} onPress={() => setFilterRange(f.id as any)}>
+                    <Text style={[styles.filterPillText, filterRange === f.id && styles.filterPillTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {filterRange === 'custom' && (
+                <View style={styles.calendarContainer}>
+                  <View style={styles.calendarHeader}>
+                    <TouchableOpacity onPress={() => changeMonth(-1)}><Icon name="chevron-left" size={20} color={theme.textPrimary} /></TouchableOpacity>
+                    <Text style={styles.calendarMonthText}>{calendarMonth.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })}</Text>
+                    <TouchableOpacity onPress={() => changeMonth(1)}><Icon name="chevron-right" size={20} color={theme.textPrimary} /></TouchableOpacity>
+                  </View>
+                  <View style={styles.calendarWeekDays}>
+                    {['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'].map(d => <Text key={d} style={styles.calendarWeekDayText}>{d}</Text>)}
+                  </View>
+                  <View style={styles.calendarGrid}>
+                    {calendarDays.map((ts, index) => {
+                      if (!ts) return <View key={`empty-${index}`} style={styles.calendarCell} />;
+                      const isStart = ts === customStartDate;
+                      const isEnd = ts === customEndDate;
+                      const isBetween = customStartDate && customEndDate && ts > customStartDate && ts < customEndDate;
+                      const isSelected = isStart || isEnd;
+                      return (
+                        <TouchableOpacity key={ts} style={[styles.calendarCell, isSelected && styles.calendarCellSelected, isBetween && styles.calendarCellBetween]} onPress={() => handleDayPress(ts)}>
+                          <Text style={[styles.calendarCellText, isSelected && styles.calendarCellTextSelected]}>{new Date(ts).getDate()}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.calendarInfoText}>
+                    {customStartDate ? new Date(customStartDate).toLocaleDateString('tr-TR') : 'Başlangıç seçin'} {' - '} {customEndDate ? new Date(customEndDate).toLocaleDateString('tr-TR') : 'Bitiş seçin'}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.filterSectionTitle}>Sıralama Ölçütü</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                {[ { id: 'date_desc', label: 'En Yeni' }, { id: 'date_asc', label: 'En Eski' }, { id: 'score_desc', label: 'En Yüksek Skor' }, { id: 'score_asc', label: 'En Düşük Skor' } ].map((s) => (
+                  <TouchableOpacity key={s.id} style={[styles.filterPill, sortType === s.id && styles.filterPillActive]} onPress={() => setSortType(s.id as any)}>
+                    <Text style={[styles.filterPillText, sortType === s.id && styles.filterPillTextActive]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.filterSectionTitle}>Gösterilecek Analiz Sayısı</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                {[5, 10, 20, 50].map((num) => (
+                  <TouchableOpacity key={num} style={[styles.filterPill, itemsPerPage === num && styles.filterPillActive]} onPress={() => setItemsPerPage(num)}>
+                    <Text style={[styles.filterPillText, itemsPerPage === num && styles.filterPillTextActive]}>{num}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <TouchableOpacity style={styles.applyFilterBtn} onPress={() => setShowFilterMenu(false)}>
+                <Text style={styles.applyFilterBtnText}>Uygula ve Göster</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {paginatedHistory.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Icon name="camera" size={36} color={theme.textSecondary} style={{ opacity: 0.5, marginBottom: 12 }} />
-              <Text style={styles.emptyStateText}>Henüz analiz geçmişin yok.{'\n'}Hadi ilk analiz için hemen bir görsel yükle!</Text>
+              <Text style={styles.emptyStateText}>
+                {history.length === 0 ? `Henüz analiz geçmişin yok.\nHadi ilk analiz için hemen bir görsel yükle!` : 'Bu filtrelere uygun analiz bulunamadı.'}
+              </Text>
             </View>
           ) : (
-            history.map((item) => <HistoryCard key={item.id} item={item as HistoryItem} onPress={() => handleHistoryItemPress(item)} />)
+            paginatedHistory.map((item) => <HistoryCard key={item.id} item={item as HistoryItem} onPress={() => handleHistoryItemPress(item)} />)
+          )}
+
+          {totalPages > 1 && !showFilterMenu && (
+            <View style={styles.paginationContainer}>
+              <TouchableOpacity style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]} onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>
+                <Icon name="chevron-left" size={20} color={theme.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.pageText}>{currentPage} / {totalPages}</Text>
+              <TouchableOpacity style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]} onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>
+                <Icon name="chevron-right" size={20} color={theme.textPrimary} />
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
-        <TouchableOpacity style={styles.galleryButton} onPress={handleGalleryPick} disabled={analyzing}>
-          <Icon name="image" size={20} color={theme.textSecondary} /><Text style={styles.galleryButtonText}>{t('selectFromGallery')}</Text>
-        </TouchableOpacity>
         <View style={styles.bottomSpacing} />
       </ScrollView>
     </View>
