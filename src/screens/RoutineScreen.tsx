@@ -199,9 +199,7 @@ function RoutineCard({
   const handleAdd = useCallback(() => {
     const trimmed = newTaskTitle.trim();
     if (!trimmed) return;
-    const timeToUse = isValidTime(newTaskTime) ? newTaskTime.trim() : defaultTime;
     onAddTask();
-    // Reset is done by parent after adding; parent will clear inputs
   }, [newTaskTitle, newTaskTime, defaultTime, onAddTask]);
 
   return (
@@ -372,7 +370,6 @@ function createRoutineStyles(theme: ReturnType<typeof useTheme>['theme']) {
     progressBarEmpty: { minWidth: 0, backgroundColor: theme.lightPurple, borderRadius: 5 },
     addTaskRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '30', paddingBottom: 12 },
     addTaskInput: { flex: 1, height: 44, backgroundColor: theme.background, borderRadius: 12, paddingHorizontal: 14, fontSize: 15, color: theme.textPrimary, marginRight: 8 },
-    addTaskTimeInput: { height: 40, backgroundColor: theme.background, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: theme.textPrimary, textAlign: 'center' as const, borderWidth: 1, minWidth: 80 },
     addTaskButton: { height: 44, justifyContent: 'center', paddingHorizontal: 16, backgroundColor: theme.primary, borderRadius: 12 },
     addTaskButtonText: { fontSize: 14, fontWeight: '600' as const, color: '#FFFFFF' },
     timeButton: {
@@ -403,8 +400,6 @@ function createRoutineStyles(theme: ReturnType<typeof useTheme>['theme']) {
     timePickerCancelText: { fontSize: 16, fontWeight: '600' as const },
     timePickerOkBtn: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 14 },
     timePickerOkText: { fontSize: 16, fontWeight: '700' as const, color: '#FFFFFF' },
-    customTimeRow: { flexDirection: 'row', marginBottom: 8 },
-    taskList: { flexDirection: 'column' },
     taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, marginBottom: 4, borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '30' },
     checkCircle: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
     checkCircleEmpty: { borderWidth: 2, borderColor: theme.textSecondary, backgroundColor: 'transparent' },
@@ -500,55 +495,56 @@ export default function RoutineScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.calendarIcon}>📅</Text>
-        <Text style={styles.headerTitle}>{t('dailyRoutine')}</Text>
-      </View>
-
-      {/* Dynamic 7-day date selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.dateSelectorContent}
-        style={styles.dateSelectorScroll}
-      >
-        {weekDays.map((item, index) => (
-          <TouchableOpacity
-            key={`${item.date.getTime()}`}
-            activeOpacity={0.8}
-            onPress={() => setSelectedDateIndex(index)}
-            style={[
-              styles.dayCard,
-              item.isSelected ? styles.dayCardSelected : undefined,
-            ]}
-          >
-            <Text
-              style={[
-                styles.dayCardLabel,
-                item.isSelected ? styles.dayCardLabelSelected : undefined,
-              ]}
-            >
-              {item.weekdayShort}
-            </Text>
-            <Text
-              style={[
-                styles.dayCardNumber,
-                item.isSelected ? styles.dayCardNumberSelected : undefined,
-              ]}
-            >
-              {item.dayNumber}
-            </Text>
-            {item.isSelected ? <View style={styles.dayCardDot} /> : null}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header (Artık sayfa ile kayacak) */}
+        <View style={styles.header}>
+          <Text style={styles.calendarIcon}>📅</Text>
+          <Text style={styles.headerTitle}>{t('dailyRoutine')}</Text>
+        </View>
+
+        {/* Dynamic 7-day date selector (Artık sayfa ile kayacak) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dateSelectorContent}
+          style={styles.dateSelectorScroll}
+        >
+          {weekDays.map((item, index) => (
+            <TouchableOpacity
+              key={`${item.date.getTime()}`}
+              activeOpacity={0.8}
+              onPress={() => setSelectedDateIndex(index)}
+              style={[
+                styles.dayCard,
+                item.isSelected ? styles.dayCardSelected : undefined,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.dayCardLabel,
+                  item.isSelected ? styles.dayCardLabelSelected : undefined,
+                ]}
+              >
+                {item.weekdayShort}
+              </Text>
+              <Text
+                style={[
+                  styles.dayCardNumber,
+                  item.isSelected ? styles.dayCardNumberSelected : undefined,
+                ]}
+              >
+                {item.dayNumber}
+              </Text>
+              {item.isSelected ? <View style={styles.dayCardDot} /> : null}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Rutin Kartları */}
         <RoutineCard
           title={t('morningRoutine')}
           iconEmoji="☀️"
@@ -592,4 +588,3 @@ export default function RoutineScreen() {
     </View>
   );
 }
-

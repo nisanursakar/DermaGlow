@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions, TextInput, Animated, Easing } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -204,8 +204,12 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
   const [birthDay, setBirthDay] = useState<number | null>(null);
   const [birthMonth, setBirthMonth] = useState<number | null>(null);
   const [birthYear, setBirthYear] = useState<number | null>(null);
+  const [onboardingHeight, setOnboardingHeight] = useState('');
+  const [onboardingWeight, setOnboardingWeight] = useState('');
 
   const lotusScrollRef = useRef<ScrollView | null>(null);
+  const cardFade = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(14)).current;
 
   const currentQuestion = questions[currentIndex];
 
@@ -213,6 +217,13 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
 
   const isAnswered = (q: QuestionConfig): boolean => {
     const value = answers[q.id];
+    // İlk soru (cinsiyet): cinsiyet seçili + boy ve kilo doldurulmuş olmalı
+    if (q.id === 'bioSex') {
+      const hasBio = typeof value === 'string' && value.length > 0;
+      const hasHeight = onboardingHeight.trim().length > 0;
+      const hasWeight = onboardingWeight.trim().length > 0;
+      return hasBio && hasHeight && hasWeight;
+    }
     if (q.type === 'multi') {
       return Array.isArray(value) && value.length > 0;
     }
@@ -237,6 +248,12 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
       }
       return { ...prev, [q.id]: optKey };
     });
+    if (q.type === 'single') {
+      // İlk soruda boy/kilo doldurulana kadar otomatik geçme
+      if (currentIndex !== 0) {
+        setTimeout(() => goNext(), 450);
+      }
+    }
   };
 
   const handleFakeDateSelect = () => {
@@ -273,6 +290,27 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
       const offset = Math.max(0, (currentIndex - 4) * itemWidth);
       lotusScrollRef.current.scrollTo({ x: offset, animated: true });
     }
+  }, [currentIndex, isFinished]);
+
+  // Sayfa geçişinde yumuşak animasyon
+  useEffect(() => {
+    cardFade.setValue(0);
+    cardSlide.setValue(14);
+    const easing = Easing.out(Easing.cubic);
+    Animated.parallel([
+      Animated.timing(cardFade, {
+        toValue: 1,
+        duration: 320,
+        easing,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardSlide, {
+        toValue: 0,
+        duration: 320,
+        easing,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [currentIndex, isFinished]);
 
   const getResultCards = () => {
@@ -450,7 +488,15 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
       </View>
 
       {!isFinished ? (
-        <View style={styles.card}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardFade,
+              transform: [{ translateY: cardSlide }],
+            },
+          ]}
+        >
           <ScrollView
             style={styles.cardScroll}
             contentContainerStyle={styles.cardContent}
@@ -469,10 +515,44 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
               </Text>
             )}
             {renderOptions(currentQuestion)}
+            {currentIndex === 0 && (
+              <View style={styles.heightWeightRow}>
+                <View style={styles.heightWeightInputWrap}>
+                  <Text style={[styles.heightWeightLabel, { color: theme.textSecondary }]}>{t('height')}</Text>
+                  <TextInput
+                    style={[styles.heightWeightInput, { backgroundColor: theme.cardBg, borderColor: theme.textSecondary + '40', color: theme.textPrimary }]}
+                    placeholder="cm"
+                    placeholderTextColor={theme.textSecondary}
+                    value={onboardingHeight}
+                    onChangeText={setOnboardingHeight}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.heightWeightInputWrap}>
+                  <Text style={[styles.heightWeightLabel, { color: theme.textSecondary }]}>{t('weight')}</Text>
+                  <TextInput
+                    style={[styles.heightWeightInput, { backgroundColor: theme.cardBg, borderColor: theme.textSecondary + '40', color: theme.textPrimary }]}
+                    placeholder="kg"
+                    placeholderTextColor={theme.textSecondary}
+                    value={onboardingWeight}
+                    onChangeText={setOnboardingWeight}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+            )}
           </ScrollView>
-        </View>
+        </Animated.View>
       ) : (
-        <View style={styles.card}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              opacity: cardFade,
+              transform: [{ translateY: cardSlide }],
+            },
+          ]}
+        >
           <ScrollView
             style={styles.cardScroll}
             contentContainerStyle={styles.cardContent}
@@ -495,7 +575,7 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
               </View>
             ))}
           </ScrollView>
-        </View>
+        </Animated.View>
       )}
 
       <View style={styles.footer}>
@@ -610,11 +690,15 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                 const birthDate = answers.birthDate instanceof Date
                   ? answers.birthDate.toISOString().slice(0, 10)
                   : undefined;
+                const height = onboardingHeight.trim() || undefined;
+                const weight = onboardingWeight.trim() || undefined;
                 updateProfile({
                   skinType,
                   sensitivity,
                   skinProblems,
                   ...(birthDate && { birthDate }),
+                  ...(height && { height }),
+                  ...(weight && { weight }),
                 });
                 try {
                   const { data: { user } } = await supabase.auth.getUser();
@@ -625,6 +709,8 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                       sensitivity,
                       skin_problems: skinProblems,
                       ...(birthDate && { birth_date: birthDate }),
+                      ...(height && { height }),
+                      ...(weight && { weight }),
                       updated_at: new Date().toISOString(),
                     });
                   }
@@ -754,6 +840,7 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                         const date = new Date(birthYear, birthMonth - 1, birthDay);
                         setAnswers((prev) => ({ ...prev, birthDate: date }));
                         setShowDatePicker(false);
+                        setTimeout(() => goNext(), 400);
                       }
                     }}
                   >
@@ -866,6 +953,25 @@ const styles = StyleSheet.create({
   optionsContainer: {
     flexDirection: 'column',
     marginTop: 4,
+  },
+  heightWeightRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  heightWeightInputWrap: {
+    flex: 1,
+  },
+  heightWeightLabel: {
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  heightWeightInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
   },
   optionChip: {
     paddingHorizontal: 14,
