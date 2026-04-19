@@ -26,8 +26,7 @@ import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
 
-// API Anahtarımızı güvenli dosyadan çekiyoruz
-import { GEMINI_API_KEY } from '../../secrets';
+const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://127.0.0.1:8000';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'CameraScreen'>;
 
@@ -50,17 +49,7 @@ const getTodayDateString = () => {
   return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
 };
 
-// Base64 -> ArrayBuffer çevirici (Supabase Storage için)
-const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
-  const cleaned = base64.includes('base64,') ? base64.split('base64,')[1] : base64;
-  const binaryString = global.atob ? global.atob(cleaned) : atob(cleaned);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i += 1) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
+ 
 
 export default function CameraScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -72,48 +61,29 @@ export default function CameraScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
-  // --- 1. VERİTABANINDAN GEÇMİŞİ ÇEKME ---
+  // --- 1. VERİTABANINDAN GEÇMİŞİ ÇEKME (FastAPI Üzerinden) ---
   const fetchHistory = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('analysis_results')
-        .select('id, image_url, analysis_type, ai_feedback, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const response = await fetch(`${API_URL}/analysis-results/${user.id}`);
+      if (!response.ok) throw new Error('Geçmiş yüklenemedi');
+      
+      const data = await response.json();
+      
+      const formattedHistory: ExtendedHistoryItem[] = data.map((item: any) => ({
+        id: item.id,
+        type: item.type as CameraMode,
+        date: new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
+        score: item.score ?? 0,
+        issues: item.issues ?? [],
+        aiComment: item.aiComment ?? '',
+        improvement: 0,
+        imageUri: item.imageUri,
+      }));
 
-      if (error) throw error;
-
-      if (data) {
-        const formattedHistory: ExtendedHistoryItem[] = data.map((item: any) => {
-          let storagePath: string = item.image_url;
-          if (storagePath.startsWith('user_analysis_photos/')) {
-            storagePath = storagePath.replace('user_analysis_photos/', '');
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('user_analysis_photos')
-            .getPublicUrl(storagePath);
-
-          // Veritabanından gelen AI sonuçlarını okuma
-          const feedback = item.ai_feedback || {};
-
-          return {
-            id: String(item.id),
-            type: item.analysis_type as CameraMode,
-            date: new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
-            score: feedback.score ?? 0,
-            issues: feedback.issues ?? [],
-            aiComment: feedback.aiComment ?? '',
-            improvement: 0,
-            imageUri: publicUrl,
-          };
-        });
-
-        setHistory(formattedHistory);
-      }
+      setHistory(formattedHistory);
     } catch (error) {
       console.error('Geçmiş yükleme hatası:', error);
     }
@@ -123,88 +93,29 @@ export default function CameraScreen() {
     fetchHistory();
   }, [fetchHistory]);
 
-  // --- 2. YAPAY ZEKA (GEMINI 2.5 FLASH) ANALİZ MOTORU ---
-  const analyzeWithRealAI = async (base64Image: string, currentMode: CameraMode) => {
-    try {
-      const modeText = currentMode === 'skin' ? 'yüz/cilt' : 'saç derisi';
-      const prompt = `Sen uzman bir dermatologsun. Ekteki ${modeText} fotoğrafını detaylıca incele. Lütfen bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (\`\`\`) kullanma. Sadece saf JSON objesi döndür:
-      {
-        "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
-        "issues": [
-          { "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce)>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }
-        ],
-        "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
-      }`;
+  // --- 2. YAPAY ZEKA VE YÜKLEME (FastAPI Üzerinden) ---
+  const analyzeAndSaveWithBackend = async (base64Image: string, currentMode: CameraMode) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Kullanıcı bulunamadı");
 
-      const requestBody = {
-        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "image/jpeg", data: base64Image } }] }],
-        generationConfig: { responseMimeType: "application/json" }
-      };
+    const payload = {
+      user_id: user.id,
+      base64_image: base64Image,
+      mode: currentMode
+    };
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      });
+    const response = await fetch(`${API_URL}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'API Hatası');
-
-      let textResponse = data.candidates[0].content.parts[0].text;
-      textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedData = JSON.parse(textResponse);
-
-      if (parsedData.issues && Array.isArray(parsedData.issues)) {
-        parsedData.issues.sort((a: any, b: any) => b.impact - a.impact);
-      }
-      return parsedData;
-    } catch (error) {
-      console.error("Yapay Zeka Hatası:", error);
-      return { score: 65, issues: [{ name: 'Analiz Hatası', impact: 0 }], aiComment: 'Görsel işlenemedi. Daha aydınlık bir fotoğraf deneyin.' };
+    if (!response.ok) {
+      throw new Error("FastAPI Analiz Hatası");
     }
+
+    return await response.json();
   };
-
-  // --- 3. VERİTABANINA YÜKLEME (AI SONUÇLARIYLA BİRLİKTE) ---
-  const uploadToSupabase = useCallback(async (file: { uri: string; base64?: string | null }, analysisMode: CameraMode, aiResult: any) => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-
-        const fileName = `${Date.now()}.jpg`;
-        const filePath = `${user.id}/${fileName}`;
-        let uploadBody: ArrayBuffer | Blob;
-
-        if (file.base64) {
-          uploadBody = base64ToArrayBuffer(file.base64);
-        } else {
-          let normalizedUri = file.uri;
-          if (!normalizedUri.startsWith('file://') && !normalizedUri.startsWith('http')) normalizedUri = `file://${normalizedUri}`;
-          const response = await fetch(normalizedUri);
-          uploadBody = await response.blob();
-        }
-
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('user_analysis_photos')
-          .upload(filePath, uploadBody, { contentType: 'image/jpeg' });
-
-        if (storageError || !storageData) return null;
-
-        // YAPAY ZEKA SONUÇLARI VERİTABANINA YAZILIYOR
-        await supabase.from('analysis_results').insert({
-          user_id: user.id,
-          image_url: storageData.path,
-          analysis_type: analysisMode,
-          ai_feedback: aiResult // Gemini sonuçları JSON olarak eklendi!
-        });
-
-        const publicUrl = supabase.storage.from('user_analysis_photos').getPublicUrl(storageData.path).data.publicUrl;
-        fetchHistory();
-        return { publicUrl, path: storageData.path };
-      } catch (error) {
-        return null;
-      }
-    }, [fetchHistory]
-  );
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
@@ -233,24 +144,20 @@ export default function CameraScreen() {
       setAnalyzing(true);
       const asset = result.assets[0];
 
-      // 1. Önce Yapay Zeka analiz etsin
-      const aiResult = await analyzeWithRealAI(asset.base64, mode);
+      // Artık FastAPI backend API'imizi çağırıyoruz
+      const backendResult = await analyzeAndSaveWithBackend(asset.base64, mode);
 
-      // 2. Sonra fotoğrafı ve AI sonucunu veritabanına kaydetsin
-      const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
-
-      const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
       const previousScore = history.length > 0 ? history[0].score : 70;
 
       const newItem: ExtendedHistoryItem = {
-        id: `new-${Date.now()}`,
+        id: backendResult.id,
         type: mode,
         date: getTodayDateString(),
-        score: aiResult.score,
-        improvement: aiResult.score - previousScore,
-        imageUri: imagePublicUrl,
-        issues: aiResult.issues,
-        aiComment: aiResult.aiComment
+        score: backendResult.score,
+        improvement: backendResult.score - previousScore,
+        imageUri: backendResult.imageUri,
+        issues: backendResult.issues,
+        aiComment: backendResult.aiComment
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -260,8 +167,8 @@ export default function CameraScreen() {
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
         imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
       });
-    } catch (e) { setAnalyzing(false); Alert.alert('Hata', 'Fotoğraf çekilemedi.'); }
-  }, [mode, history, navigateToAnalysis, requestCameraPermission, uploadToSupabase]);
+    } catch (e) { console.error(e); setAnalyzing(false); Alert.alert('Hata', 'Fotoğraf çekilemedi veya analiz esnasında sorun oluştu.'); }
+  }, [mode, history, navigateToAnalysis, requestCameraPermission]);
 
   const handleGalleryPick = useCallback(async () => {
     try {
@@ -271,24 +178,20 @@ export default function CameraScreen() {
       setAnalyzing(true);
       const asset = result.assets[0];
 
-      // 1. Önce Yapay Zeka analiz etsin
-      const aiResult = await analyzeWithRealAI(asset.base64, mode);
+      // Artık FastAPI backend API'imizi çağırıyoruz
+      const backendResult = await analyzeAndSaveWithBackend(asset.base64, mode);
 
-      // 2. Sonra fotoğrafı ve AI sonucunu veritabanına kaydetsin
-      const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
-
-      const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
       const previousScore = history.length > 0 ? history[0].score : 70;
 
       const newItem: ExtendedHistoryItem = {
-        id: `gallery-${Date.now()}`,
+        id: backendResult.id,
         type: mode,
         date: getTodayDateString(),
-        score: aiResult.score,
-        improvement: aiResult.score - previousScore,
-        imageUri: imagePublicUrl,
-        issues: aiResult.issues,
-        aiComment: aiResult.aiComment
+        score: backendResult.score,
+        improvement: backendResult.score - previousScore,
+        imageUri: backendResult.imageUri,
+        issues: backendResult.issues,
+        aiComment: backendResult.aiComment
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -298,8 +201,8 @@ export default function CameraScreen() {
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
         imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
       });
-    } catch (e) { setAnalyzing(false); Alert.alert('Hata', 'Galeri açılamadı.'); }
-  }, [mode, history, navigateToAnalysis, uploadToSupabase]);
+    } catch (e) { console.error(e); setAnalyzing(false); Alert.alert('Hata', 'Galeri açılamadı veya analiz esnasında sorun oluştu.'); }
+  }, [mode, history, navigateToAnalysis]);
 
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {
     navigation.getParent?.()?.navigate('AnalysisDetailScreen', {

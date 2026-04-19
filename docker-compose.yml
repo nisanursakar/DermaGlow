@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # /app klasörü ile bilgisayardaki backend/ klasörünü bağlayarak host-reload desteklenmesini sağlıyoruz
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
