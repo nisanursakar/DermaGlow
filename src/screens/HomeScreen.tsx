@@ -16,6 +16,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import PostList from '../components/PostList';
+import { supabase } from '../../supabase';
 
 export default function HomeScreen({ navigation }: { navigation: { getParent?: () => { navigate: (name: string) => void } } }) {
   const { theme } = useTheme();
@@ -28,7 +29,36 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
   // YENİ EKLENDİ: Stilleri RoutineScreen'deki gibi temaya tam duyarlı (dinamik) hale getirdik
   const styles = useMemo(() => createHomeStyles(theme), [theme]);
 
-  const displayName = profile.displayName;
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data } = await supabase.from('users').select('name').eq('id', user.id).single();
+          if (data && data.name) {
+            setUserName(data.name);
+          } else if (user.user_metadata?.full_name || user.user_metadata?.display_name) {
+            setUserName(user.user_metadata.full_name || user.user_metadata.display_name);
+          } else {
+            setUserName(user.email?.split('@')[0] || profile.displayName);
+          }
+        }
+      } catch (e) {
+        console.error('Ad çekme hatası:', e);
+      }
+    };
+
+    fetchUser();
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      fetchUser();
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [profile.displayName]);
 
   type InfoType = 'drySkin' | 'waterEffect' | 'routineDiff';
   const [selectedInfo, setSelectedInfo] = useState<InfoType | null>(null);
@@ -93,7 +123,7 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
         <View style={styles.greetingContainer}>
           <View style={styles.greetingTextContainer}>
             <Text style={styles.greetingText}>
-              Hoş Geldin, {displayName}
+              {userName ? `Hoş Geldin, ${userName}` : 'Hoş Geldin!'}
             </Text>
             <Text style={styles.welcomeText}>
               {t('skinDiscover')}
@@ -107,7 +137,7 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
             {profile.profileImageUri ? (
               <Image source={{ uri: profile.profileImageUri }} style={styles.avatarImage} />
             ) : (
-              <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{userName ? userName.charAt(0).toUpperCase() : '?'}</Text>
             )}
           </TouchableOpacity>
         </View>

@@ -22,10 +22,7 @@ import ModeToggle from '../components/ModeToggle';
 import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
-
-
 const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://127.0.0.1:8000';
-=======
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import { Image as ImageCompressor } from 'react-native-compressor';
@@ -108,56 +105,31 @@ export default function CameraScreen() {
 
       const response = await fetch(`${API_URL}/analysis-results/${user.id}`);
       if (!response.ok) throw new Error('Geçmiş yüklenemedi');
-      
-      const data = await response.json();
-      
-      const formattedHistory: ExtendedHistoryItem[] = data.map((item: any) => ({
-        id: item.id,
-        type: item.type as CameraMode,
-        date: new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
-        score: item.score ?? 0,
-        issues: item.issues ?? [],
-        aiComment: item.aiComment ?? '',
-        improvement: 0,
-        imageUri: item.imageUri,
-      }));
 
+      const data = await response.json();
+
+      const formattedHistory: ExtendedHistoryItem[] = data.map((item: any, index: number) => {
+        const currentScore = Number(item.score) || 0;
+        let improvement = 0;
+        if (index < data.length - 1) {
+          const prevScore = Number(data[index + 1].score) || 0;
+          improvement = currentScore - prevScore;
+        }
+
+        return {
+          id: String(item.id),
+          type: item.type as CameraMode,
+          date: new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
+          timestamp: new Date(item.created_at).getTime(),
+          score: currentScore,
+          issues: item.issues ?? [],
+          aiComment: item.aiComment ?? '',
+          improvement: improvement,
+          imageUri: item.imageUri,
+        };
+      });
 
       setHistory(formattedHistory);
-
-      if (error) throw error;
-
-      if (data) {
-        const formattedHistory: ExtendedHistoryItem[] = data.map((item: any, index: number) => {
-          let storagePath: string = item.image_url;
-          if (storagePath.startsWith('user_analysis_photos/')) {
-            storagePath = storagePath.replace('user_analysis_photos/', '');
-          }
-          const { data: { publicUrl } } = supabase.storage.from('user_analysis_photos').getPublicUrl(storagePath);
-          const feedback = item.ai_feedback || {};
-          const currentScore = Number(feedback.score) || 0;
-
-          let improvement = 0;
-          if (index < data.length - 1) {
-            const prevFeedback = data[index + 1].ai_feedback || {};
-            const prevScore = Number(prevFeedback.score) || 0;
-            improvement = currentScore - prevScore;
-          }
-
-          return {
-            id: String(item.id),
-            type: item.analysis_type as CameraMode,
-            date: new Date(item.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }),
-            timestamp: new Date(item.created_at).getTime(),
-            score: currentScore,
-            issues: feedback.issues ?? [],
-            aiComment: feedback.aiComment ?? '',
-            improvement: improvement,
-            imageUri: publicUrl,
-          };
-        });
-        setHistory(formattedHistory);
-      }
 
     } catch (error) {
       console.error('Geçmiş yükleme hatası:', error);
@@ -235,27 +207,11 @@ export default function CameraScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Kullanıcı bulunamadı");
 
-  const analyzeWithRealAI = async (base64Image: string, currentMode: CameraMode) => {
-    try {
-      const modeText = currentMode === 'skin' ? 'yüz/cilt' : 'saç derisi';
-
-      // YAPAY ZEKA PROMPTU GÜNCELLENDİ (Rastgeleliği önledik, net puan istedik)
-      const prompt = `Sen uzman bir dermatologsun. Ekteki ${modeText} fotoğrafını detaylıca incele. Lütfen bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. RASTGELE SAYILAR KULLANMA, fotoğraftaki duruma bakarak GERÇEKÇİ bir puanlama yap. Başka hiçbir açıklama veya markdown tırnak işareti (\`\`\`) kullanma. Sadece saf JSON objesi döndür:
-      {
-        "score": <Kusurların yoğunluğuna göre 0 ile 100 arasında hesapladığın GERÇEKÇİ genel sağlık puanı (sadece sayı)>,
-        "issues": [
-          { "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce, Kepek)>", "impact": <0 ile 100 arası genel sağlığa olumsuz etki yüzdesi (sadece sayı)> }
-        ],
-        "aiComment": "<Kullanıcının mevcut durumuna özel, Türkçe, samimi ve detaylı dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
-      }`;
-
-
     const payload = {
       user_id: user.id,
       base64_image: base64Image,
       mode: currentMode
     };
-
 
     const response = await fetch(`${API_URL}/analyze`, {
       method: 'POST',
@@ -265,30 +221,10 @@ export default function CameraScreen() {
 
     if (!response.ok) {
       throw new Error("FastAPI Analiz Hatası");
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'API Hatası');
-
-      let textResponse = data.candidates[0].content.parts[0].text;
-      textResponse = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedData = JSON.parse(textResponse);
-
-      if (parsedData.issues && Array.isArray(parsedData.issues)) {
-        parsedData.issues.sort((a: any, b: any) => b.impact - a.impact);
-      }
-      return parsedData;
-    } catch (error) {
-      throw error;
-
     }
 
     return await response.json();
   };
-
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
@@ -298,38 +234,6 @@ export default function CameraScreen() {
     } catch { return false; }
   }, []);
 
-  const uploadToSupabase = useCallback(async (file: { uri: string; base64?: string | null }, analysisMode: CameraMode, aiResult: any) => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-        const fileName = `${Date.now()}.jpg`;
-        const filePath = `${user.id}/${fileName}`;
-        let uploadBody: ArrayBuffer | Blob;
-
-        if (file.base64) {
-          uploadBody = base64ToArrayBuffer(file.base64);
-        } else {
-          let normalizedUri = file.uri;
-          if (!normalizedUri.startsWith('file://') && !normalizedUri.startsWith('http')) normalizedUri = `file://${normalizedUri}`;
-          const response = await fetch(normalizedUri);
-          uploadBody = await response.blob();
-        }
-
-        const { data: storageData, error: storageError } = await supabase.storage.from('user_analysis_photos').upload(filePath, uploadBody, { contentType: 'image/jpeg' });
-        if (storageError || !storageData) return null;
-
-        const { error: insertError } = await supabase.from('analysis_results').insert({
-          user_id: user.id, image_url: storageData.path, analysis_type: analysisMode, ai_feedback: aiResult
-        });
-
-        if (insertError) return null;
-        const publicUrl = supabase.storage.from('user_analysis_photos').getPublicUrl(storageData.path).data.publicUrl;
-        fetchHistory();
-        return { publicUrl, path: storageData.path };
-      } catch (error) { return null; }
-    }, [fetchHistory]
-  );
-
 
   const navigateToAnalysis = useCallback((params: any) => {
     navigation.getParent?.()?.navigate('AnalysisDetailScreen', params);
@@ -338,16 +242,20 @@ export default function CameraScreen() {
   const handleCapture = useCallback(async () => {
     if (!hasPermission || !cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePhoto();
+      const photo = await cameraRef.current.takePhoto({
+        qualityPrioritization: 'speed',
+      });
       setAnalyzing(true);
       const photoPath = Platform.OS === 'android' && !photo.path.startsWith('file://') ? `file://${photo.path}` : photo.path;
-      const compressedUri = await ImageCompressor.compress(photoPath, { maxWidth: 800, quality: 0.7 });
+      const compressedUri = await ImageCompressor.compress(photoPath, { maxWidth: 800, maxHeight: 800, quality: 0.5 });
       let cleanPath = compressedUri;
       if (Platform.OS === 'android' && cleanPath.startsWith('file://')) cleanPath = cleanPath.replace('file://', '');
 
 
+      const base64Data = await RNFS.readFile(cleanPath, 'base64');
+
       // Artık FastAPI backend API'imizi çağırıyoruz
-      const backendResult = await analyzeAndSaveWithBackend(asset.base64, mode);
+      const backendResult = await analyzeAndSaveWithBackend(base64Data, mode);
 
       const previousScore = history.length > 0 ? history[0].score : 70;
 
@@ -355,25 +263,12 @@ export default function CameraScreen() {
         id: backendResult.id,
         type: mode,
         date: getTodayDateString(),
+        timestamp: Date.now(),
         score: backendResult.score,
         improvement: backendResult.score - previousScore,
         imageUri: backendResult.imageUri,
         issues: backendResult.issues,
         aiComment: backendResult.aiComment
-
-      const base64Data = await RNFS.readFile(cleanPath, 'base64');
-      const aiResult = await analyzeWithRealAI(base64Data, mode);
-      const uploadResult = await uploadToSupabase({ uri: compressedUri, base64: base64Data }, mode, aiResult);
-      const imagePublicUrl = uploadResult?.publicUrl ?? compressedUri;
-
-      const currentScore = Number(aiResult.score) || 0;
-      const previousScore = history.length > 0 ? history[0].score : currentScore;
-
-      const newItem: ExtendedHistoryItem = {
-        id: `new-${Date.now()}`, type: mode, date: getTodayDateString(), timestamp: Date.now(),
-        score: currentScore, improvement: currentScore - previousScore, imageUri: imagePublicUrl,
-        issues: aiResult.issues, aiComment: aiResult.aiComment
-
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -381,22 +276,25 @@ export default function CameraScreen() {
 
       navigateToAnalysis({
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
-        imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
+        imageUri: newItem.imageUri, issues: newItem.issues, aiComment: newItem.aiComment
       });
-    } catch (e) { console.error(e); setAnalyzing(false); Alert.alert('Hata', 'Fotoğraf çekilemedi veya analiz esnasında sorun oluştu.'); }
-  }, [mode, history, navigateToAnalysis, requestCameraPermission]);
-
-      navigateToAnalysis({ analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore, imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment });
     } catch (e: any) {
+      console.error(e);
       setAnalyzing(false);
       Alert.alert('İşlem Başarısız', `Fotoğraf işlenemedi. Detay: ${e?.message || JSON.stringify(e)}`);
     }
-  }, [mode, history, hasPermission, navigateToAnalysis, uploadToSupabase]);
+  }, [mode, history, hasPermission, navigateToAnalysis]);
 
 
   const handleGalleryPick = useCallback(async () => {
     try {
-      const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.3, includeBase64: true });
+      const result = await launchImageLibrary({ 
+        mediaType: 'photo', 
+        quality: 0.5, 
+        maxWidth: 800, 
+        maxHeight: 800, 
+        includeBase64: true 
+      });
       if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) return;
 
       setAnalyzing(true);
@@ -412,43 +310,27 @@ export default function CameraScreen() {
         id: backendResult.id,
         type: mode,
         date: getTodayDateString(),
+        timestamp: Date.now(),
         score: backendResult.score,
         improvement: backendResult.score - previousScore,
         imageUri: backendResult.imageUri,
         issues: backendResult.issues,
         aiComment: backendResult.aiComment
-
-      const aiResult = await analyzeWithRealAI(asset.base64, mode);
-      const uploadResult = await uploadToSupabase({ uri: asset.uri, base64: asset.base64 }, mode, aiResult);
-      const imagePublicUrl = uploadResult?.publicUrl ?? asset.uri;
-
-      const currentScore = Number(aiResult.score) || 0;
-      const previousScore = history.length > 0 ? history[0].score : currentScore;
-
-      const newItem: ExtendedHistoryItem = {
-        id: `gallery-${Date.now()}`, type: mode, date: getTodayDateString(), timestamp: Date.now(),
-        score: currentScore, improvement: currentScore - previousScore, imageUri: imagePublicUrl,
-        issues: aiResult.issues, aiComment: aiResult.aiComment
-
       };
 
       setHistory(prev => [newItem, ...prev]);
       setAnalyzing(false);
 
-
       navigateToAnalysis({
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
-        imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment
+        imageUri: newItem.imageUri, issues: newItem.issues, aiComment: newItem.aiComment
       });
-    } catch (e) { console.error(e); setAnalyzing(false); Alert.alert('Hata', 'Galeri açılamadı veya analiz esnasında sorun oluştu.'); }
-  }, [mode, history, navigateToAnalysis]);
-
-      navigateToAnalysis({ analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore, imageUri: imagePublicUrl, issues: newItem.issues, aiComment: newItem.aiComment });
     } catch (e: any) {
+      console.error(e);
       setAnalyzing(false);
       Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı.');
     }
-  }, [mode, history, navigateToAnalysis, uploadToSupabase]);
+  }, [mode, history, navigateToAnalysis]);
 
 
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {

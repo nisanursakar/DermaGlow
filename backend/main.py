@@ -24,6 +24,11 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+print("=== DOCKER ENV DEBUG ===")
+print(f"SUPABASE_URL: '{SUPABASE_URL}'")
+print(f"SUPABASE_KEY: '{SUPABASE_KEY}'")
+print("========================")
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing Supabase configuration in .env file")
 
@@ -44,6 +49,11 @@ class AnalyzeRequest(BaseModel):
     user_id: str
     base64_image: str
     mode: str
+
+class Review(BaseModel):
+    user_id: str
+    rating: int
+    comment: str | None = None
 
 # ---- USERS ENDPOINTS ----
 
@@ -211,3 +221,53 @@ def analyze_image(req: AnalyzeRequest):
         "imageUri": public_url,
         "created_at": inserted_item["created_at"],
     }
+
+# ---- PRODUCTS ENDPOINTS ----
+
+@app.get("/products/search")
+def search_products(q: str):
+    search_term = f"%{q}%"
+    
+    # Supabase Python istemcisinin .or_() string yapısı bazı durumlarda boş dizi döndürebildiği için,
+    # doğrudan .ilike() fonksiyonuyla iki tablo sorgulanıp birleştirilir (OR mantığı)
+    req_name = supabase.table("products").select("*").ilike("name", search_term).execute()
+    req_brand = supabase.table("products").select("*").ilike("brand", search_term).execute()
+
+    merged_results = {}
+    
+    def add_to_dict(data):
+        for item in data:
+            # Ürünün ID'si varsa ID ile eşleştir, ID yoksa eşsiz kimlik olarak barcode baz al
+            key = item.get("id") or item.get("barcode") or item.get("name")
+            merged_results[key] = item
+            
+    add_to_dict(req_name.data)
+    add_to_dict(req_brand.data)
+
+    return list(merged_results.values())
+
+@app.get("/products/barcode/{code}")
+def get_product_by_barcode(code: str):
+    response = supabase.table("products").select("*").eq("barcode", code).execute()
+    if not response.data:
+         raise HTTPException(status_code=404, detail="Product not found")
+    return response.data[0]
+
+@app.get("/products/{product_id}")
+def get_product(product_id: str):
+    response = supabase.table("products").select("*").eq("id", product_id).execute()
+    if not response.data:
+         raise HTTPException(status_code=404, detail="Product not found")
+    return response.data[0]
+
+@app.post("/products/{product_id}/review")
+def add_product_review(product_id: str, review: Review):
+    insert_data = {
+        "product_id": product_id,
+        "user_id": review.user_id,
+        "rating": review.rating,
+        "comment": review.comment
+    }
+    # Supabase'de 'reviews' adında bir tablo olduğunu varsayıyoruz
+    response = supabase.table("reviews").insert(insert_data).execute()
+    return response.data

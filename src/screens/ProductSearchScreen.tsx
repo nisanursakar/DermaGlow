@@ -11,7 +11,10 @@ import {
   Alert,
   Platform,
   PermissionsAndroid,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
+import axios from 'axios';
 import { launchCamera } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../context/ThemeContext';
@@ -41,8 +44,46 @@ export default function ProductSearchScreen() {
   const [activeFilters, setActiveFilters] = useState<FilterKey[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [scannedCode, setScannedCode] = useState<string | null>(null);
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(1)).current;
+
+  // --- API CALLS ---
+  const handleSearch = async () => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await axios.get(`http://10.0.2.2:8000/products/search?q=${encodeURIComponent(query)}`);
+      setResults(response.data);
+    } catch (error) {
+      console.error('Search error:', error);
+      Alert.alert(t('error') || 'Hata', 'Arama sırasında bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!scannedCode) return;
+    const fetchByBarcode = async () => {
+      setLoading(true);
+      try {
+        const response = await axios.get(`http://10.0.2.2:8000/products/barcode/${encodeURIComponent(scannedCode)}`);
+        setResults([response.data]);
+      } catch (error) {
+        console.error('Barcode fetch error:', error);
+        setResults([]);
+        Alert.alert(t('error') || 'Hata', 'Bu barkoda ait ürün bulunamadı');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchByBarcode();
+  }, [scannedCode, t]);
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
@@ -265,6 +306,58 @@ export default function ProductSearchScreen() {
         filterChipTextActive: {
           color: '#FFFFFF',
         },
+        productCard: {
+          flexDirection: 'row',
+          backgroundColor: theme.cardBg,
+          borderRadius: 16,
+          padding: 12,
+          marginBottom: 16,
+          shadowColor: theme.shadowStrong,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 6,
+          elevation: 3,
+          borderWidth: 1,
+          borderColor: theme.iconBg,
+        },
+        productImage: {
+          width: 80,
+          height: 80,
+          borderRadius: 12,
+          backgroundColor: theme.iconBg,
+        },
+        productImagePlaceholder: {
+          width: 80,
+          height: 80,
+          borderRadius: 12,
+          backgroundColor: theme.iconBg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        productInfo: {
+          flex: 1,
+          marginLeft: 14,
+          justifyContent: 'center',
+        },
+        productBrand: {
+          fontSize: 11,
+          fontWeight: '700',
+          color: theme.primary,
+          marginBottom: 4,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+        },
+        productName: {
+          fontSize: 15,
+          fontWeight: '600',
+          color: theme.textPrimary,
+          marginBottom: 6,
+          lineHeight: 20,
+        },
+        productCategory: {
+          fontSize: 12,
+          color: theme.textSecondary,
+        },
         emptyState: {
           marginTop: 24,
           padding: 16,
@@ -367,6 +460,7 @@ export default function ProductSearchScreen() {
               placeholderTextColor={theme.textSecondary}
               value={query}
               onChangeText={setQuery}
+              onSubmitEditing={handleSearch}
               selectionColor={theme.primary}
               autoCapitalize="none"
               autoCorrect={false}
@@ -425,12 +519,33 @@ export default function ProductSearchScreen() {
             </View>
           )}
 
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>{t('productFind')}</Text>
-            <Text style={styles.emptyStateText}>
-              {t('productSearchInfo') ?? ''}
-            </Text>
-          </View>
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 40 }} />
+          ) : results.length > 0 ? (
+            results.map((item, index) => (
+              <View key={item.id || index} style={styles.productCard}>
+                {item.image_url ? (
+                  <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.productImagePlaceholder}>
+                    <Icon name="image" size={24} color={theme.textSecondary} />
+                  </View>
+                )}
+                <View style={styles.productInfo}>
+                  <Text style={styles.productBrand}>{item.brand || 'Bilinmeyen Marka'}</Text>
+                  <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+                  {item.category && <Text style={styles.productCategory} numberOfLines={1}>{item.category}</Text>}
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>{t('productFind')}</Text>
+              <Text style={styles.emptyStateText}>
+                {t('productSearchInfo') ?? ''}
+              </Text>
+            </View>
+          )}
         </ScrollView>
 
         {showFilters && (
