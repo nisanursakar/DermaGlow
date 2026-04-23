@@ -7,9 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Linking,
-  ActivityIndicator,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -22,14 +21,14 @@ import ModeToggle from '../components/ModeToggle';
 import CameraOverlay from '../components/CameraOverlay';
 import GradientButton from '../components/GradientButton';
 import HistoryCard, { type HistoryItem } from '../components/HistoryCard';
-const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://127.0.0.1:8000';
+
+// 1. DÜZELTME: Sabit IP silindi, doğru adres secret dosyasından çekiliyor.
+import { API_URL } from '../../secret';
+
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import { Image as ImageCompressor } from 'react-native-compressor';
 import { launchImageLibrary } from 'react-native-image-picker';
-
-import { GEMINI_API_KEY } from '../../secrets';
-
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'CameraScreen'>;
 
@@ -53,7 +52,6 @@ const getTodayDateString = () => {
   return `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
 };
 
-
 const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   const cleaned = base64.includes('base64,') ? base64.split('base64,')[1] : base64;
   const binaryString = global.atob ? global.atob(cleaned) : atob(cleaned);
@@ -64,7 +62,6 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   }
   return bytes.buffer;
 };
-
 
 export default function CameraScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -95,9 +92,7 @@ export default function CameraScreen() {
     if (!hasPermission) requestPermission();
   }, [hasPermission, requestPermission]);
 
-
   // --- 1. VERİTABANINDAN GEÇMİŞİ ÇEKME (FastAPI Üzerinden) ---
-
   const fetchHistory = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -130,7 +125,6 @@ export default function CameraScreen() {
       });
 
       setHistory(formattedHistory);
-
     } catch (error) {
       console.error('Geçmiş yükleme hatası:', error);
     }
@@ -201,7 +195,6 @@ export default function CameraScreen() {
     }
   };
 
-
   // --- 2. YAPAY ZEKA VE YÜKLEME (FastAPI Üzerinden) ---
   const analyzeAndSaveWithBackend = async (base64Image: string, currentMode: CameraMode) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -220,20 +213,23 @@ export default function CameraScreen() {
     });
 
     if (!response.ok) {
-      throw new Error("FastAPI Analiz Hatası");
+      const errorText = await response.text();
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorText.includes("429") || errorText.includes("quota") || errorText.includes("RESOURCE_EXHAUSTED")) {
+          throw new Error("Yapay zeka günlük/dakikalık limitine ulaşıldı. Lütfen 1 dakika bekleyip tekrar deneyin.");
+        }
+        throw new Error(errorJson.detail || errorText);
+      } catch (e) {
+        if (errorText.includes("429") || errorText.includes("quota") || errorText.includes("RESOURCE_EXHAUSTED")) {
+          throw new Error("Yapay zeka günlük/dakikalık limitine ulaşıldı. Lütfen 1 dakika bekleyip tekrar deneyin.");
+        }
+        throw new Error(`FastAPI Analiz Hatası (${response.status}): ${errorText}`);
+      }
     }
 
     return await response.json();
   };
-
-  const requestCameraPermission = useCallback(async (): Promise<boolean> => {
-    if (Platform.OS !== 'android') return true;
-    try {
-      const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch { return false; }
-  }, []);
-
 
   const navigateToAnalysis = useCallback((params: any) => {
     navigation.getParent?.()?.navigate('AnalysisDetailScreen', params);
@@ -251,10 +247,9 @@ export default function CameraScreen() {
       let cleanPath = compressedUri;
       if (Platform.OS === 'android' && cleanPath.startsWith('file://')) cleanPath = cleanPath.replace('file://', '');
 
-
       const base64Data = await RNFS.readFile(cleanPath, 'base64');
 
-      // Artık FastAPI backend API'imizi çağırıyoruz
+      // FastAPI backend API'sini çağırıyoruz
       const backendResult = await analyzeAndSaveWithBackend(base64Data, mode);
 
       const previousScore = history.length > 0 ? history[0].score : 70;
@@ -285,24 +280,33 @@ export default function CameraScreen() {
     }
   }, [mode, history, hasPermission, navigateToAnalysis]);
 
-
+  // ÇÖZÜM BURADA: Galeriden seçilen fotoğraf artık kamerayla aynı kompresyon ve okuma süzgecinden geçiyor
   const handleGalleryPick = useCallback(async () => {
     try {
-      const result = await launchImageLibrary({ 
-        mediaType: 'photo', 
-        quality: 0.5, 
-        maxWidth: 800, 
-        maxHeight: 800, 
-        includeBase64: true 
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 1, // Kendi kompresörümüzü kullanacağımız için burada sıkıştırmıyoruz
+        selectionLimit: 1
       });
-      if (result.didCancel || !result.assets?.[0]?.uri || !result.assets?.[0]?.base64) return;
+
+      // Kullanıcı iptal ettiyse veya fotoğraf gelmediyse dur
+      if (result.didCancel || !result.assets?.[0]?.uri) return;
 
       setAnalyzing(true);
-      const asset = result.assets[0];
+      const assetUri = result.assets[0].uri;
 
+      // 1. Tıpkı kamerada olduğu gibi kendi güvenli kompresörümüzden geçiriyoruz
+      let photoPath = Platform.OS === 'android' && !assetUri.startsWith('content://') && !assetUri.startsWith('file://') ? `file://${assetUri}` : assetUri;
+      const compressedUri = await ImageCompressor.compress(photoPath, { maxWidth: 800, maxHeight: 800, quality: 0.5 });
 
-      // Artık FastAPI backend API'imizi çağırıyoruz
-      const backendResult = await analyzeAndSaveWithBackend(asset.base64, mode);
+      let cleanPath = compressedUri;
+      if (Platform.OS === 'android' && cleanPath.startsWith('file://')) cleanPath = cleanPath.replace('file://', '');
+
+      // 2. Tıpkı kamerada olduğu gibi RNFS ile çok temiz bir Base64 okuması yapıyoruz
+      const base64Data = await RNFS.readFile(cleanPath, 'base64');
+
+      // 3. FastAPI backend API'sini çağırıyoruz (Artık kamera ile %100 aynı formatta!)
+      const backendResult = await analyzeAndSaveWithBackend(base64Data, mode);
 
       const previousScore = history.length > 0 ? history[0].score : 70;
 
@@ -328,10 +332,9 @@ export default function CameraScreen() {
     } catch (e: any) {
       console.error(e);
       setAnalyzing(false);
-      Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı.');
+      Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı. Detay: ' + (e?.message || 'Bilinmeyen hata'));
     }
   }, [mode, history, navigateToAnalysis]);
-
 
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {
     navigateToAnalysis({
@@ -398,11 +401,6 @@ export default function CameraScreen() {
     loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', borderRadius: theme.borderRadiusLarge, zIndex: 30 },
     loadingText: { marginTop: 16, fontSize: 16, color: '#FFF', fontWeight: '600' },
     bottomSpacing: { height: 24 },
-    deniedCard: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-    deniedTitle: { fontSize: 18, fontWeight: '700', color: theme.textPrimary, marginTop: 16, marginBottom: 8 },
-    deniedText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', marginBottom: 24 },
-    settingsButton: { paddingVertical: 12, paddingHorizontal: 24, backgroundColor: theme.primary, borderRadius: theme.borderRadius },
-    settingsButtonText: { color: '#FFF', fontWeight: '700' },
   }), [theme]);
 
   return (
@@ -410,21 +408,27 @@ export default function CameraScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Icon name="camera" size={24} color={theme.primary} />
-          <View style={styles.headerTextBlock}><Text style={styles.headerTitle}>{t('skinAnalysis')}</Text><Text style={styles.headerSubtitle}>{t('cameraSubtitle')}</Text></View>
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.headerTitle}>{t('skinAnalysis')}</Text>
+            <Text style={styles.headerSubtitle}>{t('cameraSubtitle')}</Text>
+          </View>
         </View>
 
         <View style={styles.previewWrapper}>
           <View style={styles.cameraContainer}>
-            {device != null ? (
+            {/* 2. DÜZELTME: Kamerayı ekrana basmadan önce hasPermission ile izni kontrol ediyoruz */}
+            {device != null && hasPermission ? (
               <Camera ref={cameraRef} style={StyleSheet.absoluteFill} device={device} isActive={isFocused && !analyzing} photo={true} />
             ) : (
               <View style={styles.previewPlaceholder}>
                 <Icon name="camera-off" size={64} color={theme.lightPurple} />
-                <Text style={styles.previewPlaceholderText}>Kamera Yükleniyor...</Text>
+                <Text style={styles.previewPlaceholderText}>
+                  {!hasPermission ? 'Kamera izni bekleniyor...' : 'Kamera Yükleniyor...'}
+                </Text>
               </View>
             )}
             <View style={StyleSheet.absoluteFill} pointerEvents="none"><CameraOverlay mode={mode} /></View>
-            {device != null && !analyzing && (
+            {device != null && !analyzing && hasPermission && (
               <TouchableOpacity style={styles.flipButton} onPress={toggleCameraPosition} activeOpacity={0.7}>
                 <Icon name="refresh-ccw" size={20} color="#FFFFFF" />
               </TouchableOpacity>
@@ -440,7 +444,7 @@ export default function CameraScreen() {
         </View>
 
         <View style={styles.captureSection}>
-          <GradientButton title={t('takePhoto')} icon={<Icon name="camera" size={22} color="#FFF" />} onPress={handleCapture} disabled={analyzing} />
+          <GradientButton title={t('takePhoto')} icon={<Icon name="camera" size={22} color="#FFF" />} onPress={handleCapture} disabled={analyzing || !hasPermission} />
           <TouchableOpacity style={styles.galleryButton} onPress={handleGalleryPick} disabled={analyzing}>
             <Icon name="image" size={20} color={theme.textSecondary} />
             <Text style={styles.galleryButtonText}>{t('selectFromGallery')}</Text>
@@ -516,7 +520,12 @@ export default function CameraScreen() {
 
               <Text style={styles.filterSectionTitle}>Sıralama Ölçütü</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                {[ { id: 'date_desc', label: 'En Yeni' }, { id: 'date_asc', label: 'En Eski' }, { id: 'score_desc', label: 'En Yüksek Skor' }, { id: 'score_asc', label: 'En Düşük Skor' } ].map((s) => (
+                {[
+                  { id: 'date_desc', label: 'En Yeni' },
+                  { id: 'date_asc', label: 'En Eski' },
+                  { id: 'score_desc', label: 'En Yüksek Skor' },
+                  { id: 'score_asc', label: 'En Düşük Skor' }
+                ].map((s) => (
                   <TouchableOpacity key={s.id} style={[styles.filterPill, sortType === s.id && styles.filterPillActive]} onPress={() => setSortType(s.id as any)}>
                     <Text style={[styles.filterPillText, sortType === s.id && styles.filterPillTextActive]}>{s.label}</Text>
                   </TouchableOpacity>

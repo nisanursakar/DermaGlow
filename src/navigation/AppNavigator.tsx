@@ -19,6 +19,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ProductSearchScreen from '../screens/ProductSearchScreen';
 import OnboardingSurveyScreen from '../screens/OnboardingSurveyScreen';
+import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
 
 // 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
 import AIFab from '../components/AIFab';
@@ -46,6 +47,7 @@ export type RootStackParamList = {
   LoginScreen: undefined;
   ResetPasswordScreen: undefined;
   ProductSearchScreen: undefined;
+  BarcodeScannerScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -67,10 +69,10 @@ export default function AppNavigator() {
         screenOptions={{ headerShown: false }}
       >
         <Stack.Screen
-            name="ResetPasswordScreen"
-            component={ResetPasswordScreen}
-            options={{ headerShown: false }}
-          />
+          name="ResetPasswordScreen"
+          component={ResetPasswordScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="OnboardingSurveyScreen"
           component={OnboardingSurveyScreen}
@@ -80,6 +82,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="ProductSearchScreen"
           component={ProductSearchScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BarcodeScannerScreen"
+          component={BarcodeScannerScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen

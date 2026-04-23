@@ -88,7 +88,6 @@ def delete_user(user_id: str):
 
 @app.get("/posts")
 def get_posts():
-    # En yeni postları önce almak için id'ye göre veya create tarihine göre sıralayabiliriz.
     response = supabase.table("posts").select("*").order("id", desc=True).execute()
     return response.data
 
@@ -125,7 +124,7 @@ def get_analysis_history(user_id: str):
         if storage_path.startswith('user_analysis_photos/'):
             storage_path = storage_path.replace('user_analysis_photos/', '', 1)
         public_url = supabase.storage.from_("user_analysis_photos").get_public_url(storage_path)
-        
+
         results.append({
             "id": str(item["id"]),
             "type": item["analysis_type"],
@@ -144,18 +143,29 @@ def analyze_image(req: AnalyzeRequest):
     cleaned_base64 = req.base64_image
     if "base64," in cleaned_base64:
         cleaned_base64 = cleaned_base64.split("base64,")[1]
-    
+
     # 2. Call Gemini
     mode_text = "yüz/cilt" if req.mode == "skin" else "saç derisi"
-    prompt = f"""Sen uzman bir dermatologsun. Ekteki {mode_text} fotoğrafını detaylıca incele. Lütfen bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (```) kullanma. Sadece saf JSON objesi döndür:
-      {{
-        "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
-        "issues": [
-          {{ "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce)>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }}
-        ],
-        "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
-      }}"""
+    prompt = f"""Sen uzman bir dermatologsun. Öncelikle ekteki fotoğrafın gerçekten bir insan {mode_text} (cilt/yüz/saç) fotoğrafı olup olmadığını kontrol et.
+Eğer fotoğrafta belirgin bir insan {mode_text} yoksa (örneğin tavan, eşya, duvar, bilgisayar vb. alakasız bir nesneyse), sadece şu JSON'u döndür:
+{{
+  "score": 0,
+  "issues": [
+    {{ "name": "Geçersiz Görsel", "impact": 100 }}
+  ],
+  "aiComment": "Bu fotoğrafta analiz edilebilecek bir cilt veya saç derisi tespit edilemedi. Lütfen kamerayı kendinize çevirip net bir fotoğraf çekin."
+}}
 
+Eğer fotoğraf GERÇEKTEN bir insan {mode_text} fotoğrafıysa, detaylıca incele ve bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (```) kullanma. Sadece saf JSON objesi döndür:
+{{
+  "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
+  "issues": [
+    {{ "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce)>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }}
+  ],
+  "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
+}}"""
+
+    # ÇÖZÜM: BLOCK_NONE API'de yasak olduğu için BLOCK_ONLY_HIGH yaptık.
     payload = {
         "contents": [{
             "parts": [
@@ -163,36 +173,46 @@ def analyze_image(req: AnalyzeRequest):
                 {"inlineData": {"mimeType": "image/jpeg", "data": cleaned_base64}}
             ]
         }],
-        "generationConfig": {"responseMimeType": "application/json"}
+        "generationConfig": {"responseMimeType": "application/json"},
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
+        ]
     }
-    
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={GEMINI_API_KEY}"
     gemini_res = requests.post(gemini_url, json=payload, headers={"Content-Type": "application/json"})
-    
+
     if not gemini_res.ok:
-        raise HTTPException(status_code=500, detail="Failed to analyze image with Gemini API")
-    
+        # Gemini kızarsa diye gerçek nedeni Docker terminaline basıyoruz!
+        print("GEMINI API ERROR:", gemini_res.text)
+        # Telefondaki hata mesajında da hatanın detayını gösterecek
+        raise HTTPException(status_code=500, detail=f"Gemini API Hatası: {gemini_res.text}")
+
     gemini_data = gemini_res.json()
     try:
         text_response = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
         text_response = text_response.replace("```json", "").replace("```", "").strip()
         ai_result = json.loads(text_response)
     except Exception as e:
+        print("JSON PARSE ERROR:", e)
         ai_result = {
-            "score": 65, 
-            "issues": [{"name": "Analiz Hatası", "impact": 0}], 
-            "aiComment": "Görsel işlenemedi. Daha aydınlık bir fotoğraf deneyin."
+            "score": 65,
+            "issues": [{"name": "Analiz Hatası", "impact": 0}],
+            "aiComment": "Görsel işlenemedi. Daha net bir fotoğraf deneyin."
         }
 
     # 3. Upload to Supabase Storage
     file_bytes = base64.b64decode(cleaned_base64)
     file_name = f"{int(time.time() * 1000)}.jpg"
     file_path = f"{req.user_id}/{file_name}"
-    
+
     try:
         supabase.storage.from_("user_analysis_photos").upload(
-            file_path, 
-            file_bytes, 
+            file_path,
+            file_bytes,
             file_options={"content-type": "image/jpeg"}
         )
     except Exception as e:
@@ -207,10 +227,10 @@ def analyze_image(req: AnalyzeRequest):
     }
     db_res = supabase.table("analysis_results").insert(insert_data).execute()
     inserted_item = db_res.data[0]
-    
+
     # 5. Respond
     public_url = supabase.storage.from_("user_analysis_photos").get_public_url(file_path)
-    
+
     return {
         "id": str(inserted_item["id"]),
         "type": inserted_item["analysis_type"],
@@ -227,20 +247,17 @@ def analyze_image(req: AnalyzeRequest):
 @app.get("/products/search")
 def search_products(q: str):
     search_term = f"%{q}%"
-    
-    # Supabase Python istemcisinin .or_() string yapısı bazı durumlarda boş dizi döndürebildiği için,
-    # doğrudan .ilike() fonksiyonuyla iki tablo sorgulanıp birleştirilir (OR mantığı)
+
     req_name = supabase.table("products").select("*").ilike("name", search_term).execute()
     req_brand = supabase.table("products").select("*").ilike("brand", search_term).execute()
 
     merged_results = {}
-    
+
     def add_to_dict(data):
         for item in data:
-            # Ürünün ID'si varsa ID ile eşleştir, ID yoksa eşsiz kimlik olarak barcode baz al
             key = item.get("id") or item.get("barcode") or item.get("name")
             merged_results[key] = item
-            
+
     add_to_dict(req_name.data)
     add_to_dict(req_brand.data)
 
@@ -268,6 +285,5 @@ def add_product_review(product_id: str, review: Review):
         "rating": review.rating,
         "comment": review.comment
     }
-    # Supabase'de 'reviews' adında bir tablo olduğunu varsayıyoruz
     response = supabase.table("reviews").insert(insert_data).execute()
     return response.data

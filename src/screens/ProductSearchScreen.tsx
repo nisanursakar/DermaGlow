@@ -15,10 +15,12 @@ import {
   Image,
 } from 'react-native';
 import axios from 'axios';
+import { API_URL } from '../../secret';
 import { launchCamera } from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/Feather';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 const FILTER_KEYS = [
   'filterCleanser',
@@ -38,6 +40,8 @@ const FILTER_KEYS = [
 type FilterKey = (typeof FILTER_KEYS)[number];
 
 export default function ProductSearchScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { theme } = useTheme();
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
@@ -49,6 +53,7 @@ export default function ProductSearchScreen() {
 
   const slideAnim = useRef(new Animated.Value(1)).current;
 
+
   // --- API CALLS ---
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -57,10 +62,10 @@ export default function ProductSearchScreen() {
     }
     setLoading(true);
     try {
-      const response = await axios.get(`http://10.0.2.2:8000/products/search?q=${encodeURIComponent(query)}`);
+      const response = await axios.get(`${API_URL}/products/search?q=${encodeURIComponent(query)}`);
       setResults(response.data);
     } catch (error) {
-      console.error('Search error:', error);
+      console.log('Search error:', error);
       Alert.alert(t('error') || 'Hata', 'Arama sırasında bir hata oluştu');
     } finally {
       setLoading(false);
@@ -72,10 +77,10 @@ export default function ProductSearchScreen() {
     const fetchByBarcode = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(`http://10.0.2.2:8000/products/barcode/${encodeURIComponent(scannedCode)}`);
+        const response = await axios.get(`${API_URL}/products/barcode/${encodeURIComponent(scannedCode)}`);
         setResults([response.data]);
       } catch (error) {
-        console.error('Barcode fetch error:', error);
+        console.log('Barcode fetch error:', error);
         setResults([]);
         Alert.alert(t('error') || 'Hata', 'Bu barkoda ait ürün bulunamadı');
       } finally {
@@ -84,6 +89,14 @@ export default function ProductSearchScreen() {
     };
     fetchByBarcode();
   }, [scannedCode, t]);
+
+
+  useEffect(() => {
+    if (route.params?.scannedCode) {
+      setScannedCode(route.params.scannedCode);
+      navigation.setParams({ scannedCode: undefined });
+    }
+  }, [route.params?.scannedCode, navigation]);
 
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
@@ -104,30 +117,9 @@ export default function ProductSearchScreen() {
     }
   }, [t]);
 
-  const handleBarcodeScan = useCallback(async () => {
-    const granted = await requestCameraPermission();
-    if (!granted) {
-      Alert.alert(t('cameraPermissionTitle'), t('cameraPermissionMessage'));
-      return;
-    }
-
-    launchCamera(
-      {
-        mediaType: 'photo',
-        cameraType: 'back',
-        quality: 0.8,
-      },
-      (response) => {
-        if (response.didCancel || !response.assets || !response.assets[0]) {
-          return;
-        }
-        const asset = response.assets[0];
-        const code = asset.fileName || asset.uri || '';
-        setScannedCode(code);
-        // TODO: Gerçek barkod okuma entegrasyonu ile code değeri barkoddan okunacak
-      }
-    );
-  }, [requestCameraPermission, t]);
+  const handleBarcodeScan = useCallback(() => {
+    navigation.navigate('BarcodeScannerScreen');
+  }, [navigation]);
 
   const handleProductPhoto = useCallback(async () => {
     const granted = await requestCameraPermission();
