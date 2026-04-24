@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, TextInput } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { Camera, useCameraDevice, useCodeScanner, useCameraPermission } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Feather';
@@ -16,6 +16,7 @@ export default function BarcodeScannerScreen() {
 
   // ÇÖZÜM 1: Makineli tüfek etkisini önlemek için kilit (Lock) state'i
   const [hasScanned, setHasScanned] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
 
   useEffect(() => {
     if (!hasPermission) {
@@ -88,6 +89,35 @@ export default function BarcodeScannerScreen() {
       >
         <Icon name="x" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      <View style={styles.manualEntryContainer}>
+        <TextInput
+          style={[styles.manualInput, { color: theme.textPrimary, borderColor: theme.textSecondary + '55' }]}
+          placeholder={t('manualBarcodePlaceholder') || 'Barkod no yazın'}
+          placeholderTextColor={theme.textSecondary}
+          value={manualBarcode}
+          onChangeText={setManualBarcode}
+          keyboardType="number-pad"
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            const code = manualBarcode.trim();
+            if (!code) return;
+            navigation.navigate('ProductSearchScreen', { scannedCode: code });
+          }}
+        />
+        <TouchableOpacity
+          style={[styles.manualSubmitButton, { backgroundColor: theme.primary }]}
+          activeOpacity={0.85}
+          disabled={!manualBarcode.trim()}
+          onPress={() => {
+            const code = manualBarcode.trim();
+            if (!code) return;
+            navigation.navigate('ProductSearchScreen', { scannedCode: code });
+          }}
+        >
+          <Text style={styles.manualSubmitText}>{t('barcodeSearchButton') || 'Ara'}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -102,5 +132,35 @@ const styles = StyleSheet.create({
   bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
   bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
   instructionText: { marginTop: 40, color: '#FFF', fontSize: 16, fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, overflow: 'hidden' },
-  closeButton: { position: 'absolute', top: 50, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }
+  closeButton: { position: 'absolute', top: 50, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  manualEntryContainer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  manualInput: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    fontSize: 14,
+  },
+  manualSubmitButton: {
+    height: 48,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualSubmitText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
 });
