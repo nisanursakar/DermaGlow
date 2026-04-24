@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'; // YENİ EKL
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useUserProfile } from '../context/UserProfileContext';
-import PostList from '../components/PostList';
 import { supabase } from '../../supabase';
 
 export default function HomeScreen({ navigation }: { navigation: { getParent?: () => { navigate: (name: string) => void } } }) {
@@ -248,8 +247,6 @@ export default function HomeScreen({ navigation }: { navigation: { getParent?: (
             <Text style={styles.infoSubtitle}>{t('routineDiffSub')}</Text>
           </View>
         </TouchableOpacity>
-
-        <PostList />
 
         <View style={styles.bottomSpacing} />
       </ScrollView>

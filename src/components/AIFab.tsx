@@ -4,7 +4,7 @@ import {
   PanResponder,
   TouchableOpacity,
   StyleSheet,
-  Text,
+  Image,
   Dimensions
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -136,7 +136,11 @@ export default function AIFab() {
           }
         }}
       >
-        <Text style={[styles.textIcon, { color: isDark ? theme.secondary : theme.primary }]}>AI</Text>
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={styles.logoIcon}
+          resizeMode="contain"
+        />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -156,14 +160,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 5,
     elevation: 6,
   },
-  textIcon: {
-    fontSize: 18,
-    fontWeight: '800',
+  logoIcon: {
+    width: 42,
+    height: 42,
   },
 });

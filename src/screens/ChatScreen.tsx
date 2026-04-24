@@ -15,10 +15,7 @@ import {
   ScrollView,
   PermissionsAndroid,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { launchImageLibrary, launchCamera, ImagePickerResponse, MediaType } from 'react-native-image-picker';
-import type { MainTabParamList } from '../navigation/BottomTabNavigator';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -43,19 +40,6 @@ export type CommunityPost = {
   isLiked: boolean;
   comments: Comment[];
 };
-
-type MessageItem = {
-  id: string;
-  userId: string;
-  userName: string;
-  lastMessage: string;
-  time: string;
-  unreadCount: number;
-  isOnline: boolean;
-  skinType: string;
-};
-
-type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'ChatScreen'>;
 
 // -----------------------------------------------------------------------------
 // Initial Data
@@ -92,39 +76,6 @@ const INITIAL_POSTS: CommunityPost[] = [
     likeCount: 31,
     isLiked: false,
     comments: [],
-  },
-];
-
-const MESSAGES: MessageItem[] = [
-  {
-    id: '1',
-    userId: 'user1',
-    userName: 'Elif Kaya',
-    lastMessage: 'O serumu ben de kullanıyorum, harika!',
-    time: '10:30',
-    unreadCount: 2,
-    isOnline: true,
-    skinType: 'Kuru Cilt',
-  },
-  {
-    id: '2',
-    userId: 'user2',
-    userName: 'Deniz Y.',
-    lastMessage: 'Yeni peeling nasıl, memnun musun?',
-    time: '09:12',
-    unreadCount: 0,
-    isOnline: false,
-    skinType: 'Karma Cilt',
-  },
-  {
-    id: '3',
-    userId: 'user3',
-    userName: 'Ayşe K.',
-    lastMessage: 'Maske önerin için teşekkürler 💜',
-    time: 'Dün',
-    unreadCount: 1,
-    isOnline: false,
-    skinType: 'Hassas Cilt',
   },
 ];
 
@@ -445,58 +396,9 @@ function CommunityPostCard({
 }
 
 // -----------------------------------------------------------------------------
-// Message Row
-// -----------------------------------------------------------------------------
-function MessageRow({
-  item,
-  onPress,
-  styles,
-}: {
-  item: MessageItem;
-  onPress: (userId: string, userName: string) => void;
-  styles: ReturnType<typeof createChatScreenStyles>;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={() => onPress(item.userId, item.userName)}
-      style={styles.messageRow}
-    >
-      <View style={styles.messageAvatarWrapper}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{getInitials(item.userName)}</Text>
-        </View>
-        {item.isOnline ? <View style={styles.onlineDot} /> : null}
-      </View>
-
-      <View style={styles.messageContentBlock}>
-        <View style={styles.messageTopRow}>
-          <Text style={styles.messageUserName}>{item.userName}</Text>
-          <Text style={styles.messageTime}>{item.time}</Text>
-        </View>
-        <Text numberOfLines={1} style={styles.messagePreview}>
-          {item.lastMessage}
-        </Text>
-        <View style={styles.messageBottomRow}>
-          <View style={styles.skinTypePill}>
-            <Text style={styles.skinTypeText}>{item.skinType}</Text>
-          </View>
-          {item.unreadCount > 0 ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// -----------------------------------------------------------------------------
 // Main ChatScreen
 // -----------------------------------------------------------------------------
 export default function ChatScreen() {
-  const navigation = useNavigation<NavigationProp>();
   const [posts, setPosts] = useState<CommunityPost[]>(INITIAL_POSTS);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
@@ -562,13 +464,6 @@ export default function ChatScreen() {
     setPosts((prevPosts) => [newPost, ...prevPosts]);
   }, [userProfile.displayName]);
 
-  const handleMessagePress = useCallback(
-    (userId: string, userName: string) => {
-      navigation.getParent?.()?.navigate('ChatDetailScreen', { userId, userName });
-    },
-    [navigation]
-  );
-
   const styles = useMemo(() => createChatScreenStyles(contextTheme), [contextTheme]);
 
   const renderPost: ListRenderItem<CommunityPost> = ({ item }) => (
@@ -603,16 +498,6 @@ export default function ChatScreen() {
     </View>
   );
 
-  const renderFooter = () => (
-    <View style={styles.messagesSection}>
-      <Text style={styles.sectionTitle}>{t('messages')}</Text>
-      {MESSAGES.map((m) => (
-        <MessageRow key={m.id} item={m} onPress={handleMessagePress} styles={styles} />
-      ))}
-      <View style={styles.bottomSpacing} />
-    </View>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: contextTheme.background }]}>
       <FlatList
@@ -620,7 +505,7 @@ export default function ChatScreen() {
         keyExtractor={keyExtractor}
         renderItem={renderPost}
         ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
+        ListFooterComponent={<View style={styles.bottomSpacing} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
@@ -804,90 +689,6 @@ function createChatScreenStyles(theme: ReturnType<typeof useTheme>['theme']) {
       fontSize: 13,
       color: theme.secondary,
       fontWeight: '600',
-    },
-    messagesSection: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-    },
-    messageRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 12,
-      borderRadius: 18,
-      backgroundColor: theme.cardBg,
-      marginTop: 10,
-      shadowColor: theme.shadowStrong,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      elevation: 3,
-    },
-    messageAvatarWrapper: {
-      marginRight: 12,
-    },
-    onlineDot: {
-      position: 'absolute',
-      bottom: 2,
-      right: 2,
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: theme.success,
-      borderWidth: 2,
-      borderColor: theme.cardBg,
-    },
-    messageContentBlock: {
-      flex: 1,
-    },
-    messageTopRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    messageUserName: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: theme.textPrimary,
-    },
-    messageTime: {
-      fontSize: 12,
-      color: theme.textSecondary,
-    },
-    messagePreview: {
-      fontSize: 13,
-      color: theme.textSecondary,
-      marginTop: 4,
-    },
-    messageBottomRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    skinTypePill: {
-      borderRadius: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      backgroundColor: theme.iconBg,
-    },
-    skinTypeText: {
-      fontSize: 11,
-      color: theme.textPrimary,
-      fontWeight: '600',
-    },
-    unreadBadge: {
-      marginLeft: 8,
-      minWidth: 22,
-      height: 22,
-      borderRadius: 11,
-      backgroundColor: theme.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    unreadBadgeText: {
-      color: '#FFFFFF',
-      fontSize: 12,
-      fontWeight: '700',
     },
     bottomSpacing: {
       height: 24,
