@@ -50,6 +50,10 @@ class AnalyzeRequest(BaseModel):
     base64_image: str
     mode: str
 
+class ChatRequest(BaseModel):
+    message: str
+    routine_context: str | None = None
+
 class Review(BaseModel):
     user_id: str
     rating: int
@@ -146,6 +150,8 @@ def analyze_image(req: AnalyzeRequest):
 
     # 2. Call Gemini
     mode_text = "yüz/cilt" if req.mode == "skin" else "saç derisi"
+    example_issue = "Sivilce, Siyah Nokta, Leke" if req.mode == "skin" else "Kepek, Saç Dökülmesi/Seyrelme, Yağlanma"
+    
     prompt = f"""Sen uzman bir dermatologsun. Öncelikle ekteki fotoğrafın gerçekten bir insan {mode_text} (cilt/yüz/saç) fotoğrafı olup olmadığını kontrol et.
 Eğer fotoğrafta belirgin bir insan {mode_text} yoksa (örneğin tavan, eşya, duvar, bilgisayar vb. alakasız bir nesneyse), sadece şu JSON'u döndür:
 {{
@@ -160,7 +166,7 @@ Eğer fotoğraf GERÇEKTEN bir insan {mode_text} fotoğrafıysa, detaylıca ince
 {{
   "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
   "issues": [
-    {{ "name": "<Tespit ettiğin birinci sorunun adı (Örn: Sivilce)>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }}
+    {{ "name": "<Tespit ettiğin birinci sorunun adı (Örn: {example_issue})>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }}
   ],
   "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
 }}"""
@@ -182,12 +188,14 @@ Eğer fotoğraf GERÇEKTEN bir insan {mode_text} fotoğrafıysa, detaylıca ince
         ]
     }
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={GEMINI_API_KEY}"
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
     gemini_res = requests.post(gemini_url, json=payload, headers={"Content-Type": "application/json"})
 
     if not gemini_res.ok:
         # Gemini kızarsa diye gerçek nedeni Docker terminaline basıyoruz!
         print("GEMINI API ERROR:", gemini_res.text)
+        if gemini_res.status_code == 429:
+             raise HTTPException(status_code=429, detail="Yapay Zeka sunucuları şu an çok yoğun. Lütfen 1 dakika bekleyip tekrar deneyin.")
         # Telefondaki hata mesajında da hatanın detayını gösterecek
         raise HTTPException(status_code=500, detail=f"Gemini API Hatası: {gemini_res.text}")
 
@@ -287,3 +295,53 @@ def add_product_review(product_id: str, review: Review):
     }
     response = supabase.table("reviews").insert(insert_data).execute()
     return response.data
+
+# ---- CHAT ENDPOINT ----
+
+@app.post("/chat")
+def chat_with_ai(req: ChatRequest):
+    system_prompt = """Senin adın DermAI. DermaGlow uygulamasının uzman, profesyonel ancak aynı zamanda samimi ve yardımsever cilt bakım asistanısın. 
+Kullanıcının konuşma tarzına uyum sağla: 
+- Eğer kullanıcı sadece selam veriyorsa, sıcak ve profesyonel bir şekilde karşıla ve cilt sağlığı konusunda nasıl yardımcı olabileceğini sor. Durduk yere uzun rutin analizleri yapma.
+- Eğer kullanıcı cilt bakımı, ürünler veya sorunları hakkında bir soru soruyorsa; uzman, güvenilir, dermatolojik prensiplere uygun ve net bir dille profesyonel tavsiyeler ver.
+Cevapların anlaşılır olsun, çok uzun destanlar yazmaktan kaçın. Gerektiğinde bilgileri maddeler halinde veya kalın yazarak formatla."""
+    
+    if req.routine_context:
+        system_prompt += f"\n\nKullanıcının mevcut cilt bakım rutini aşağıdadır. (ÖNEMLİ: Bu rutini SADECE kullanıcı cilt bakımıyla ilgili bir soru sorduğunda veya tavsiye istediğinde göz önünde bulundur. Durduk yere bu rutinden bahsetme.):\n{req.routine_context}"
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": req.message}
+            ]
+        }],
+        "systemInstruction": {
+            "parts": [
+                {"text": system_prompt}
+            ]
+        },
+        "generationConfig": {"responseMimeType": "text/plain"},
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
+        ]
+    }
+
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    gemini_res = requests.post(gemini_url, json=payload, headers={"Content-Type": "application/json"})
+
+    if not gemini_res.ok:
+        print("GEMINI API ERROR (Chat):", gemini_res.text)
+        if gemini_res.status_code == 429:
+            return {"reply": "Şu an çok fazla istek alıyorum, lütfen 1 dakika kadar bekleyip tekrar yaz. ⏳"}
+        raise HTTPException(status_code=500, detail="Gemini API Hatası")
+
+    gemini_data = gemini_res.json()
+    try:
+        reply_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
+        return {"reply": reply_text}
+    except Exception as e:
+        print("CHAT PARSE ERROR:", e)
+        return {"reply": "Üzgünüm, şu an bağlantıda bir sorun yaşıyorum. Lütfen birazdan tekrar dene."}

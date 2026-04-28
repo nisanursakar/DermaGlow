@@ -103,7 +103,7 @@ export default function AIFab() {
   ).current;
 
   const botName = t('aiAssistantName') === 'aiAssistantName'
-    ? 'DermaGlow Asistan'
+    ? 'DermAI'
     : t('aiAssistantName');
 
   // Gizliyken null dönmüyoruz; Animated node'lar unmount olursa "animated node does not exist" hatası oluşuyor.

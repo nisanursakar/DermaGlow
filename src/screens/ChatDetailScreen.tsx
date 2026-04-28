@@ -19,6 +19,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { useRoutine } from '../context/RoutineContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { API_URL } from '../../secret';
 
 type Message = {
   id: string;
@@ -47,7 +48,7 @@ const getInitialMessages = (userId: string, t: any): Message[] => {
   if (userId === 'bot_01') {
     return [{
       id: 'm0',
-      text: safeTranslate(t, 'aiWelcomeMessage', 'Merhaba! Ben DermaGlow Asistan. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin. 🤖'),
+      text: safeTranslate(t, 'aiWelcomeMessage', 'Merhaba! Ben DermAI. Cilt bakım rutinin hakkında bana her şeyi sorabilirsin. 🤖'),
       senderId: userId,
       receiverId: currentUserId,
       timestamp: new Date(),
@@ -201,14 +202,27 @@ export default function ChatDetailScreen() {
 
       try {
         const routineContext = getRoutineSummary();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 saniye zaman aşımı
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const response = await fetch(`${API_URL}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userMsgText,
+            routine_context: routineContext
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-        // DİNAMİK YAPAY ZEKA SİMÜLASYONU CEVABI (Çeviriye Bağlı)
-        const readingText = safeTranslate(t, 'aiReadingRoutine', '(AI Simülasyonu)\n\nSenin için şu rutin bilgisini okudum:');
-        const readyText = safeTranslate(t, 'aiReadyToAnswer', 'Buna dayanarak sorunu cevaplayabilirim!');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`API hatası (${response.status}): ${errorText}`);
+        }
 
-        const aiResponseText = `${readingText}\n${routineContext}\n\n${readyText}`;
+        const data = await response.json();
+        const aiResponseText = data.reply || 'Bir hata oluştu.';
 
         const aiMessage: Message = {
           id: `m${nextMessageIdRef.current++}`,
@@ -220,8 +234,26 @@ export default function ChatDetailScreen() {
         };
         setMessages((prev) => [...prev, aiMessage]);
 
-      } catch (error) {
-        console.error("AI Hatası:", error);
+      } catch (error: any) {
+        console.error(`AI Hatası (${API_URL}):`, error.message || error);
+        
+        // Hata türüne göre kullanıcıya daha spesifik bir mesaj göster
+        let userErrorMessage = 'Üzgünüm, şu an bağlantıda bir sorun yaşıyorum. Lütfen birazdan tekrar dene.';
+        if (error.name === 'AbortError') {
+          userErrorMessage = 'İstek zaman aşımına uğradı. Lütfen internet bağlantını kontrol et.';
+        } else if (error.message === 'Network request failed') {
+          userErrorMessage = 'Sunucuya bağlanılamadı. Lütfen aynı Wi-Fi ağına bağlı olduğunuzdan emin olun.';
+        }
+
+        const errorMessage: Message = {
+          id: `m${nextMessageIdRef.current++}`,
+          text: userErrorMessage,
+          senderId: userId,
+          receiverId: currentUserId,
+          timestamp: new Date(),
+          isRead: false,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
       } finally {
         setIsTyping(false);
       }
