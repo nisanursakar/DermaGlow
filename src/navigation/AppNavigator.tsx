@@ -20,11 +20,11 @@ import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ProductSearchScreen from '../screens/ProductSearchScreen';
 import OnboardingSurveyScreen from '../screens/OnboardingSurveyScreen';
 import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
-
-// 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
+import SplashScreen from '../screens/SplashScreen';
 import AIFab from '../components/AIFab';
 
 export type RootStackParamList = {
+  SplashScreen: undefined;
   OnboardingSurveyScreen: undefined;
   MainTabs: undefined;
   ProfileScreen: undefined;
@@ -65,9 +65,14 @@ export default function AppNavigator() {
   return (
     <>
       <Stack.Navigator
-        initialRouteName="LoginScreen"
+        initialRouteName="SplashScreen"
         screenOptions={{ headerShown: false }}
       >
+        <Stack.Screen
+          name="SplashScreen"
+          component={SplashScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="ResetPasswordScreen"
           component={ResetPasswordScreen}
@@ -141,8 +146,6 @@ export default function AppNavigator() {
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
-
-      {/* 2. ASİSTAN BUTONUNU NAVİGASYONUN YANINA EKLİYORUZ */}
       <AIFab />
     </>
   );
