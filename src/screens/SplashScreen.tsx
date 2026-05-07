@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, StatusBar } from 'react-native';
 import Video from 'react-native-video';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
@@ -11,10 +11,7 @@ export default function SplashScreen({ navigation }: Props) {
   const hasNavigated = useRef(false);
 
   const goToLogin = () => {
-    if (hasNavigated.current) {
-      return;
-    }
-
+    if (hasNavigated.current) return;
     hasNavigated.current = true;
     navigation.replace('LoginScreen');
   };
@@ -26,10 +23,14 @@ export default function SplashScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      {/* StatusBar'ı gizlemek veya video arkasında şeffaf yapmak tam ekran hissini artırır */}
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+
       <Video
-        source={require('../../assets/videos/splash_video.mp4.mp4')}
+        source={require('../../assets/videos/ıntro_video.mp4.mp4')}
         style={[styles.video, !isVideoReady && styles.hiddenVideo]}
-        resizeMode="contain"
+        // ÇÖZÜM: 'cover' videoyu ekrana yayar, boşluk bırakmaz.
+        resizeMode="cover"
         controls={false}
         paused={false}
         repeat={false}
@@ -44,13 +45,11 @@ export default function SplashScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F4FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#F8F4FF', // Video yüklenene kadar görünen arka plan
   },
   video: {
-    width: '100%',
-    height: '100%',
+    // ÇÖZÜM: absoluteFillObject ile farklı cihazlarda ekranı tam kaplar.
+    ...StyleSheet.absoluteFillObject,
   },
   hiddenVideo: {
     opacity: 0,
