@@ -1,16 +1,15 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  PanResponder,
-  TouchableOpacity,
-  StyleSheet,
+  Dimensions,
   Image,
-  Dimensions
+  PanResponder,
+  StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
-
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -25,58 +24,42 @@ export default function AIFab() {
   const { t } = useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [isHidden, setIsHidden] = useState(false);
-
   const pan = useRef(new Animated.ValueXY()).current;
 
-  // Sayfaya göre gizleme mantığı
-    useEffect(() => {
-      // 1. Uygulama ilk açıldığında (Login ekranındayken) konumu anında kontrol et
-      const checkInitialRoute = setTimeout(() => {
-        const routeName = navigation.getCurrentRoute()?.name;
-        if (routeName === 'ChatDetailScreen' || routeName === 'LoginScreen') {
-          setIsHidden(true);
-        }
-      }, 100);
+  useEffect(() => {
+    const syncVisibility = () => {
+      const routeName = navigation.getCurrentRoute()?.name;
+      const hiddenRoutes = ['ChatDetailScreen', 'LoginScreen', 'SplashScreen'];
+      setIsHidden(!!routeName && hiddenRoutes.includes(routeName));
+    };
 
-      // 2. Daha sonraki sayfa geçişlerinde kontrol etmeye devam et
-      const unsubscribe = navigation.addListener('state', () => {
-        const routeName = navigation.getCurrentRoute()?.name;
-        if (routeName === 'ChatDetailScreen' || routeName === 'LoginScreen') {
-          setIsHidden(true);
-        } else {
-          setIsHidden(false);
-        }
-      });
+    const checkInitialRoute = setTimeout(syncVisibility, 100);
+    const unsubscribe = navigation.addListener('state', syncVisibility);
 
-      return () => {
-        clearTimeout(checkInitialRoute);
-        unsubscribe();
-      };
-    }, [navigation]);
+    return () => {
+      clearTimeout(checkInitialRoute);
+      unsubscribe();
+    };
+  }, [navigation]);
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
-      },
+      onMoveShouldSetPanResponder: (_evt, gestureState) =>
+        Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2,
       onPanResponderGrant: () => {
-        // TİTREMEYİ KÖKTEN ÇÖZEN KISIM: Parmağı koyduğumuz an konumu sabitler
         pan.extractOffset();
       },
-      onPanResponderMove: Animated.event(
-        [null, { dx: pan.x, dy: pan.y }],
-        { useNativeDriver: false } // Sürükleme esnasında kilit yok, pürüzsüz kayar
-      ),
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
       onPanResponderRelease: () => {
         pan.flattenOffset();
 
-        // Parmağı bıraktığımızda sınırları kontrol ediyoruz
-        // @ts-ignore (Kırmızı çizgi çizebilir, sorun değil, React Native'de çalışır)
+        // @ts-ignore React Native Animated private value access
         let finalX = pan.x._value;
-        // @ts-ignore
+        // @ts-ignore React Native Animated private value access
         let finalY = pan.y._value;
 
-        // Ekran sınırlarını belirliyoruz (Çentik ve alt menü payları dahil)
         const minX = -SCREEN_WIDTH + FAB_SIZE + INITIAL_RIGHT + 20;
         const maxX = 0;
         const minY = -SCREEN_HEIGHT + FAB_SIZE + INITIAL_BOTTOM + 100;
@@ -84,30 +67,38 @@ export default function AIFab() {
 
         let isOutOfBounds = false;
 
-        if (finalX < minX) { finalX = minX; isOutOfBounds = true; }
-        if (finalX > maxX) { finalX = maxX; isOutOfBounds = true; }
-        if (finalY < minY) { finalY = minY; isOutOfBounds = true; }
-        if (finalY > maxY) { finalY = maxY; isOutOfBounds = true; }
+        if (finalX < minX) {
+          finalX = minX;
+          isOutOfBounds = true;
+        }
+        if (finalX > maxX) {
+          finalX = maxX;
+          isOutOfBounds = true;
+        }
+        if (finalY < minY) {
+          finalY = minY;
+          isOutOfBounds = true;
+        }
+        if (finalY > maxY) {
+          finalY = maxY;
+          isOutOfBounds = true;
+        }
 
-        // Eğer dışarı taşmışsa, ekranın içine zarifçe yaylanarak döner
         if (isOutOfBounds) {
           Animated.spring(pan, {
             toValue: { x: finalX, y: finalY },
             useNativeDriver: false,
             friction: 6,
-            tension: 40
+            tension: 40,
           }).start();
         }
       },
     })
   ).current;
 
-  const botName = t('aiAssistantName') === 'aiAssistantName'
-    ? 'DermAI'
-    : t('aiAssistantName');
+  const botName =
+    t('aiAssistantName') === 'aiAssistantName' ? 'DermaGlow Asistan' : t('aiAssistantName');
 
-  // Gizliyken null dönmüyoruz; Animated node'lar unmount olursa "animated node does not exist" hatası oluşuyor.
-  // Bunun yerine opacity: 0 ve pointerEvents: 'none' ile görünmez/tıklanmaz tutuyoruz.
   return (
     <Animated.View
       style={[
@@ -123,9 +114,9 @@ export default function AIFab() {
         style={[
           styles.fab,
           {
-            backgroundColor: theme.cardBg,
+            backgroundColor: '#FFFFFF',
             borderColor: isDark ? theme.secondary : theme.primary,
-          }
+          },
         ]}
         onPress={() => {
           if (!isHidden) {
@@ -136,11 +127,7 @@ export default function AIFab() {
           }
         }}
       >
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={styles.logoIcon}
-          resizeMode="contain"
-        />
+        <Image source={require('../assets/images/logo.png')} style={styles.logoIcon} resizeMode="contain" />
       </TouchableOpacity>
     </Animated.View>
   );

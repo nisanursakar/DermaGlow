@@ -22,11 +22,15 @@ import { useLanguage } from '../context/LanguageContext';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'LoginScreen'>;
 
-export default function LoginScreen() {
+type LoginScreenProps = {
+  initialMode?: 'login' | 'signup';
+};
+
+export default function LoginScreen({ initialMode = 'login' }: LoginScreenProps) {
   const navigation = useNavigation<LoginScreenNavigationProp>();
   const { theme } = useTheme();
   const { t, language, setLanguage } = useLanguage();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');

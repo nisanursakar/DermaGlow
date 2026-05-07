@@ -15,16 +15,17 @@ import ContactScreen from '../screens/ContactScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ProductSearchScreen from '../screens/ProductSearchScreen';
 import OnboardingSurveyScreen from '../screens/OnboardingSurveyScreen';
 import BarcodeScannerScreen from '../screens/BarcodeScannerScreen';
-
-// 1. ASİSTAN BUTONUNU İÇERİ AKTARIYORUZ
+import SplashScreen from '../screens/SplashScreen';
 import AIFab from '../components/AIFab';
 
 export type RootStackParamList = {
+  SplashScreen: undefined;
   OnboardingSurveyScreen: undefined;
   MainTabs: undefined;
   ProfileScreen: undefined;
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   PrivacyPolicyScreen: undefined;
   TermsOfUseScreen: undefined;
   LoginScreen: undefined;
+  SignupScreen: undefined;
   ResetPasswordScreen: undefined;
   ProductSearchScreen: undefined;
   BarcodeScannerScreen: undefined;
@@ -65,9 +67,14 @@ export default function AppNavigator() {
   return (
     <>
       <Stack.Navigator
-        initialRouteName="LoginScreen"
+        initialRouteName="SplashScreen"
         screenOptions={{ headerShown: false }}
       >
+        <Stack.Screen
+          name="SplashScreen"
+          component={SplashScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="ResetPasswordScreen"
           component={ResetPasswordScreen}
@@ -140,9 +147,12 @@ export default function AppNavigator() {
           component={LoginScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="SignupScreen"
+          component={SignupScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
-
-      {/* 2. ASİSTAN BUTONUNU NAVİGASYONUN YANINA EKLİYORUZ */}
       <AIFab />
     </>
   );
