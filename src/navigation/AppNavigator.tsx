@@ -15,6 +15,7 @@ import ContactScreen from '../screens/ContactScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ProductSearchScreen from '../screens/ProductSearchScreen';
@@ -45,6 +46,7 @@ export type RootStackParamList = {
   PrivacyPolicyScreen: undefined;
   TermsOfUseScreen: undefined;
   LoginScreen: undefined;
+  SignupScreen: undefined;
   ResetPasswordScreen: undefined;
   ProductSearchScreen: undefined;
   BarcodeScannerScreen: undefined;
@@ -143,6 +145,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="LoginScreen"
           component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SignupScreen"
+          component={SignupScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
