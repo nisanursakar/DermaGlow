@@ -16,3 +16,6 @@ venv/
 # OS files
 .DS_Store
 Thumbs.db
+
+secret.ts
+.env
