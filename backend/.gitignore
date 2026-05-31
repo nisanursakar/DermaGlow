@@ -17,5 +17,3 @@ venv/
 .DS_Store
 Thumbs.db
 
-secret.ts
-.env

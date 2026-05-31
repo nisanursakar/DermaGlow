@@ -27,7 +27,7 @@ export default function SplashScreen({ navigation }: Props) {
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
       <Video
-        source={require('../../assets/videos/ıntro_video.mp4.mp4')}
+        source={require('../../assets/videos/intro_video.mp4')}
         style={[styles.video, !isVideoReady && styles.hiddenVideo]}
         // ÇÖZÜM: 'cover' videoyu ekrana yayar, boşluk bırakmaz.
         resizeMode="cover"

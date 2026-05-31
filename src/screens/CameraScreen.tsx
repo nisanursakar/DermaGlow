@@ -27,7 +27,7 @@ import { API_URL } from '../../secret';
 
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
-import { Image as ImageCompressor } from 'react-native-compressor';
+import ImageResizer from 'react-native-image-resizer';
 import { launchImageLibrary } from 'react-native-image-picker';
 
 type NavigationProp = BottomTabNavigationProp<MainTabParamList, 'CameraScreen'>;
@@ -72,6 +72,8 @@ export default function CameraScreen() {
 
   const [history, setHistory] = useState<ExtendedHistoryItem[]>(INITIAL_HISTORY);
   const [analyzing, setAnalyzing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
   const [cameraPosition, setCameraPosition] = useState<'front' | 'back'>('front');
 
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -243,7 +245,48 @@ export default function CameraScreen() {
       });
       setAnalyzing(true);
       const photoPath = Platform.OS === 'android' && !photo.path.startsWith('file://') ? `file://${photo.path}` : photo.path;
-      const compressedUri = await ImageCompressor.compress(photoPath, { maxWidth: 800, maxHeight: 800, quality: 0.5 });
+      const resizedImage = await ImageResizer.createResizedImage(photoPath, 800, 800, 'JPEG', 50);
+      const compressedUri = resizedImage.uri;
+
+      // --- YENİ FASTAPI ENTEGRASYONU BAŞLANGICI ---
+      setLoading(true);
+      setResult(null);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const formData = new FormData();
+          formData.append('user_id', user.id);
+
+          const fileName = compressedUri.split('/').pop() || 'photo.jpg';
+          const fileType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+          formData.append('image', {
+            uri: Platform.OS === 'android' && !compressedUri.startsWith('file://') ? `file://${compressedUri}` : compressedUri,
+            name: fileName,
+            type: fileType,
+          } as any);
+
+          const apiResponse = await fetch(`${API_URL}/api/analyze-skin`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json' },
+          });
+
+          if (apiResponse.ok) {
+            const responseData = await apiResponse.json();
+            setResult(responseData);
+            console.log("Yeni API Başarılı:", responseData);
+          } else {
+            console.error("Yeni API Hatası:", await apiResponse.text());
+          }
+        }
+      } catch (err) {
+        console.error("Yeni API İstek Hatası:", err);
+      } finally {
+        setLoading(false);
+      }
+      // --- YENİ FASTAPI ENTEGRASYONU BİTİŞİ ---
+
       let cleanPath = compressedUri;
       if (Platform.OS === 'android' && cleanPath.startsWith('file://')) cleanPath = cleanPath.replace('file://', '');
 
@@ -297,7 +340,8 @@ export default function CameraScreen() {
 
       // 1. Tıpkı kamerada olduğu gibi kendi güvenli kompresörümüzden geçiriyoruz
       let photoPath = Platform.OS === 'android' && !assetUri.startsWith('content://') && !assetUri.startsWith('file://') ? `file://${assetUri}` : assetUri;
-      const compressedUri = await ImageCompressor.compress(photoPath, { maxWidth: 800, maxHeight: 800, quality: 0.5 });
+      const resizedImage = await ImageResizer.createResizedImage(photoPath, 800, 800, 'JPEG', 50);
+      const compressedUri = resizedImage.uri;
 
       let cleanPath = compressedUri;
       if (Platform.OS === 'android' && cleanPath.startsWith('file://')) cleanPath = cleanPath.replace('file://', '');

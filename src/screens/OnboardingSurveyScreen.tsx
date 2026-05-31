@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import { supabase } from '../../supabase';
+import { API_URL } from '../../secret';
 import type { SkinType } from '../context/UserProfileContext';
 import type { SensitivityLevel } from '../context/UserProfileContext';
 
@@ -713,6 +714,32 @@ export default function OnboardingSurveyScreen({ navigation }: { navigation: any
                       ...(weight && { weight }),
                       updated_at: new Date().toISOString(),
                     });
+
+                    // --- FASTAPI ENTEGRASYONU BAŞLANGICI ---
+                    try {
+                      const sessionUserId = (await supabase.auth.getSession()).data.session?.user.id;
+                      const userId = sessionUserId || user.id;
+
+                      const payload = {
+                        user_id: userId,
+                        answers: {
+                          ...answers,
+                          height: height,
+                          weight: weight
+                        }
+                      };
+
+                      await fetch(`${API_URL}/api/save-survey`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                      });
+                    } catch (apiErr) {
+                      console.warn('FastAPI Survey Save Error:', apiErr);
+                    }
+                    // --- FASTAPI ENTEGRASYONU BİTİŞİ ---
                   }
                 } catch (e) {
                   console.warn('Onboarding profile sync:', e);

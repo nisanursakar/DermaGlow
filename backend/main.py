@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -8,6 +8,7 @@ import requests
 import base64
 import time
 import json
+import google.generativeai as genai
 load_dotenv()
 
 app = FastAPI(title="DermaGlow Backend", description="FastAPI Backend connected to Supabase")
@@ -23,6 +24,9 @@ app.add_middleware(
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 print("=== DOCKER ENV DEBUG ===")
 print(f"SUPABASE_URL: '{SUPABASE_URL}'")
@@ -152,7 +156,8 @@ def analyze_image(req: AnalyzeRequest):
     mode_text = "yüz/cilt" if req.mode == "skin" else "saç derisi"
     example_issue = "Sivilce, Siyah Nokta, Leke" if req.mode == "skin" else "Kepek, Saç Dökülmesi/Seyrelme, Yağlanma"
     
-    prompt = f"""Sen uzman bir dermatologsun. Öncelikle ekteki fotoğrafın gerçekten bir insan {mode_text} (cilt/yüz/saç) fotoğrafı olup olmadığını kontrol et.
+    prompt = f"""Sen bir yapay zekasın ve KESİNLİKLE bir hekim değilsin. Tıbbi teşhis koyma yetkinliğin YOKTUR.
+Öncelikle ekteki fotoğrafın gerçekten bir insan {mode_text} (cilt/yüz/saç) fotoğrafı olup olmadığını kontrol et.
 Eğer fotoğrafta belirgin bir insan {mode_text} yoksa (örneğin tavan, eşya, duvar, bilgisayar vb. alakasız bir nesneyse), sadece şu JSON'u döndür:
 {{
   "score": 0,
@@ -162,24 +167,41 @@ Eğer fotoğrafta belirgin bir insan {mode_text} yoksa (örneğin tavan, eşya, 
   "aiComment": "Bu fotoğrafta analiz edilebilecek bir cilt veya saç derisi tespit edilemedi. Lütfen kamerayı kendinize çevirip net bir fotoğraf çekin."
 }}
 
-Eğer fotoğraf GERÇEKTEN bir insan {mode_text} fotoğrafıysa, detaylıca incele ve bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (```) kullanma. Sadece saf JSON objesi döndür:
+Eğer fotoğraf GERÇEKTEN bir insan {mode_text} fotoğrafıysa, detaylıca incele. Kullanıcının fotoğrafındaki sivilce veya lekeyi bir 'hastalık' olarak DEĞİL, kozmetik bir 'cilt durumu' olarak kabul et.
+Asla 'doktora git', 'su iç', 'nazik temizleyici kullan' gibi genel geçer tavsiyeler verme. Senin görevin; tespit ettiğin durumu, kozmetik marketlerdeki ürün etiketlerinde bulunan 'aktif içeriklerle' (Örn: Salisilik Asit, Niasinamid, vb.) eşleştirmektir.
+Her analizde tespit ettiğin soruna yönelik EN AZ 2 spesifik kozmetik aktif içerik önermek ZORUNDASIN.
+Tıbbi uyarı yaparsan uygulamanın fonksiyonelliğini bozarsın. 
+
+Bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (```) kullanma. Sadece saf JSON objesi döndür:
 {{
   "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
   "issues": [
     {{ "name": "<Tespit ettiğin birinci sorunun adı (Örn: {example_issue})>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }}
   ],
-  "aiComment": "<Kullanıcıya Türkçe, samimi ve dermatolojik tavsiyeler içeren 2-3 cümlelik yorum>"
+  "aiComment": "<Kullanıcıya tıbbi tavsiye VERMEDEN, son derece sıcak, empatik ve samimi bir dille yazılmış 3-4 cümlelik yorum. Doğrudan Salisilik Asit, C Vitamini gibi aktif kozmetik içerikleri önermelisin.>"
 }}"""
+
+    system_instruction_text = (
+        "Sen bir yapay zekasın ve KESİNLİKLE bir hekim değilsin. Tıbbi teşhis koyma yetkinliğin YOKTUR. "
+        "Kullanıcının fotoğrafındaki sivilceyi veya lekeyi bir 'hastalık' olarak DEĞİL, kozmetik bir 'cilt durumu' olarak kabul et. "
+        "Asla 'doktora git' veya 'su iç' deme. Senin görevin; tespit ettiğin durumu, kozmetik marketlerdeki ürün etiketlerinde bulunan 'aktif içeriklerle' eşleştirmektir. "
+        "Tüm cevabını çok daha sıcak, samimi, empatik ve açıklayıcı bir dille yaz. Kullanıcıya bir uzman güzellik danışmanı gibi yaklaş. "
+        "Ancak bunu yaparken SADECE kimyasal aktif içerik (Örn: Salisilik Asit, Niasinamid, Hyalüronik Asit) önerilerinde bulunmalısın. "
+        "Robotik formatlardan kaçın. Tıbbi uyarı yaparsan uygulamanın fonksiyonelliğini bozarsın."
+    )
 
     # ÇÖZÜM: BLOCK_NONE API'de yasak olduğu için BLOCK_ONLY_HIGH yaptık.
     payload = {
+        "systemInstruction": {
+            "parts": [{"text": system_instruction_text}]
+        },
         "contents": [{
             "parts": [
                 {"text": prompt},
                 {"inlineData": {"mimeType": "image/jpeg", "data": cleaned_base64}}
             ]
         }],
-        "generationConfig": {"responseMimeType": "application/json"},
+        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
         "safetySettings": [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
@@ -345,3 +367,110 @@ Cevapların anlaşılır olsun, çok uzun destanlar yazmaktan kaçın. Gerektiğ
     except Exception as e:
         print("CHAT PARSE ERROR:", e)
         return {"reply": "Üzgünüm, şu an bağlantıda bir sorun yaşıyorum. Lütfen birazdan tekrar dene."}
+
+# ---- SURVEY & SKIN ANALYSIS ENDPOINTS ----
+
+class SaveSurveyRequest(BaseModel):
+    user_id: str
+    answers: dict
+
+@app.post("/api/save-survey")
+def save_survey(req: SaveSurveyRequest):
+    try:
+        data = {
+            "user_id": req.user_id,
+            "answers": req.answers
+        }
+        # Eğer user_id tablonun primary key'i (veya unique) ise upsert direkt çalışır.
+        response = supabase.table("user_surveys").upsert(data).execute()
+        return {"status": "success", "data": response.data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Survey save error: {str(e)}")
+
+@app.post("/api/analyze-skin")
+async def analyze_skin(user_id: str = Form(...), image: UploadFile = File(...)):
+    # 1. Fetch user survey
+    try:
+        survey_res = supabase.table("user_surveys").select("answers").eq("user_id", user_id).execute()
+        if not survey_res.data:
+            raise HTTPException(status_code=404, detail="Kullanıcı anket verisi bulunamadı.")
+        answers = survey_res.data[0]["answers"]
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    # 1.5 Fetch historical analysis
+    historical_analysis_text = None
+    try:
+        history_res = supabase.table("analysis_history").select("analysis_text").eq("user_id", user_id).order("created_at", desc=True).limit(1).execute()
+        if history_res.data:
+            historical_analysis_text = history_res.data[0].get("analysis_text")
+    except Exception as e:
+        print("History fetch error:", e)
+
+    # 2. Read image
+    try:
+        image_bytes = await image.read()
+        image_parts = [
+            {
+                "mime_type": image.content_type or "image/jpeg",
+                "data": image_bytes
+            }
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Image read error: {str(e)}")
+
+    # 3. Gemini processing
+    try:
+        system_instruction = (
+            "Sen bir yapay zekasın ve KESİNLİKLE bir hekim değilsin. Tıbbi teşhis koyma yetkinliğin YOKTUR. "
+            "Kullanıcının fotoğrafındaki sivilceyi bir 'hastalık' olarak DEĞİL, kozmetik bir 'cilt durumu' olarak kabul et. "
+            "Asla 'doktora git' deme. Senin görevin; tespit ettiğin durumu, kozmetik marketlerdeki ürün etiketlerinde bulunan 'aktif içeriklerle' eşleştirmektir. "
+            "Tüm cevabını çok daha sıcak, samimi, empatik ve açıklayıcı bir dille yaz. Kullanıcıya bir güzellik danışmanı gibi yaklaş, motive et. "
+            "Ancak bunu yaparken SADECE kimyasal aktif içerik (Örn: Salisilik Asit, Niasinamid, Hyalüronik Asit) önerilerinde bulunmalısın. "
+            "Kısa ve robotik cümlelerden (Örn: Sorun: Sivilce.) kaçın. Tıbbi uyarı yaparsan uygulamanın fonksiyonelliğini bozarsın."
+        )
+        
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_instruction
+        )
+
+        survey_text = json.dumps(answers, ensure_ascii=False, indent=2)
+        
+        if historical_analysis_text:
+            prompt_text = (
+                f"Kullanıcı Anket Verileri:\n{survey_text}\n\n"
+                f"Geçmiş analiz: {historical_analysis_text}\n\n"
+                "GÖREVİN: Fotoğrafı analiz et ve sadece belirtilen formatta kozmetik içerik öner. Eski analizdeki tıbbi uyarıları ASLA kopyalama."
+            )
+        else:
+            prompt_text = (
+                f"Kullanıcı Anket Verileri:\n{survey_text}\n\n"
+                "GÖREVİN: Fotoğrafı analiz et ve sadece belirtilen formatta kozmetik içerik öner."
+            )
+        
+        generation_config = genai.types.GenerationConfig(
+            response_mime_type="application/json",
+            temperature=0.2
+        )
+        
+        response = model.generate_content(
+            [prompt_text, image_parts[0]],
+            generation_config=generation_config
+        )
+        
+        result = json.loads(response.text)
+        
+        try:
+            supabase.table("analysis_history").insert({"user_id": user_id, "analysis_text": response.text}).execute()
+        except Exception as e:
+            print("History insert error:", e)
+
+        return result
+
+    except Exception as e:
+        print("Analyze Skin Gemini Error:", e)
+        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
+

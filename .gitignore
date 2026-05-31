@@ -81,6 +81,6 @@ yarn-error.log
 !.yarn/versions
 f872c0b1017d068e537307294e9fbb418033ba1a
 
-secrets.ts
+secret.ts
 
 .env
