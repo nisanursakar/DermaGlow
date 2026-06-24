@@ -42,6 +42,8 @@ export interface ExtendedHistoryItem extends HistoryItem {
   issues?: IssueType[];
   aiComment?: string;
   timestamp: number;
+  yolo_condition?: string;
+  yolo_treatments?: any;
 }
 
 const INITIAL_HISTORY: ExtendedHistoryItem[] = [];
@@ -306,7 +308,9 @@ export default function CameraScreen() {
         improvement: backendResult.score - previousScore,
         imageUri: backendResult.imageUri,
         issues: backendResult.issues,
-        aiComment: backendResult.aiComment
+        aiComment: backendResult.aiComment,
+        yolo_condition: backendResult?.yolo_condition ?? null,
+        yolo_treatments: backendResult?.yolo_treatments ?? null
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -314,7 +318,8 @@ export default function CameraScreen() {
 
       navigateToAnalysis({
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
-        imageUri: newItem.imageUri, issues: newItem.issues, aiComment: newItem.aiComment
+        imageUri: newItem.imageUri, issues: newItem.issues, aiComment: newItem.aiComment,
+        yolo_condition: newItem.yolo_condition, yolo_treatments: newItem.yolo_treatments
       });
     } catch (e: any) {
       console.error(e);
@@ -363,7 +368,9 @@ export default function CameraScreen() {
         improvement: backendResult.score - previousScore,
         imageUri: backendResult.imageUri,
         issues: backendResult.issues,
-        aiComment: backendResult.aiComment
+        aiComment: backendResult.aiComment,
+        yolo_condition: backendResult?.yolo_condition ?? null,
+        yolo_treatments: backendResult?.yolo_treatments ?? null
       };
 
       setHistory(prev => [newItem, ...prev]);
@@ -371,7 +378,8 @@ export default function CameraScreen() {
 
       navigateToAnalysis({
         analysisId: newItem.id, type: newItem.type, score: newItem.score, previousScore,
-        imageUri: newItem.imageUri, issues: newItem.issues, aiComment: newItem.aiComment
+        imageUri: newItem.imageUri, issues: newItem.issues, aiComment: newItem.aiComment,
+        yolo_condition: newItem.yolo_condition, yolo_treatments: newItem.yolo_treatments
       });
     } catch (e: any) {
       console.error(e);
@@ -383,7 +391,8 @@ export default function CameraScreen() {
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {
     navigateToAnalysis({
       analysisId: item.id, type: item.type, score: item.score, previousScore: item.score - (item.improvement || 0),
-      imageUri: item.imageUri, issues: item.issues, aiComment: item.aiComment
+      imageUri: item.imageUri, issues: item.issues, aiComment: item.aiComment,
+      yolo_condition: item.yolo_condition ?? null, yolo_treatments: item.yolo_treatments ?? null
     });
   }, [navigateToAnalysis]);
 

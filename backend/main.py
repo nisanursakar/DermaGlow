@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Form, UploadFile, File
+from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
@@ -8,10 +8,33 @@ import requests
 import base64
 import time
 import json
-import google.generativeai as genai
+import io
+import re
+from PIL import Image
+from contextlib import asynccontextmanager
+from ultralytics import YOLO
+
 load_dotenv()
 
-app = FastAPI(title="DermaGlow Backend", description="FastAPI Backend connected to Supabase")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load YOLO model on startup
+    model_path = os.path.join(os.path.dirname(__file__), "model", "best.pt")
+    try:
+        if os.path.exists(model_path):
+            app.state.model = YOLO(model_path)
+            print("✅ YOLO model loaded successfully.")
+        else:
+            app.state.model = None
+            print("❌ YOLO model not found at", model_path)
+    except Exception as e:
+        app.state.model = None
+        print(f"❌ Error loading YOLO model: {e}")
+    yield
+    # Cleanup
+    app.state.model = None
+
+app = FastAPI(title="DermaGlow Backend", description="FastAPI Backend connected to Supabase", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,10 +46,6 @@ app.add_middleware(
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 print("=== DOCKER ENV DEBUG ===")
 print(f"SUPABASE_URL: '{SUPABASE_URL}'")
@@ -56,6 +75,7 @@ class AnalyzeRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
+    user_id: str | None = None
     routine_context: str | None = None
 
 class Review(BaseModel):
@@ -146,93 +166,57 @@ def get_analysis_history(user_id: str):
     return results
 
 @app.post("/analyze")
-def analyze_image(req: AnalyzeRequest):
+def analyze_image(req: AnalyzeRequest, request: Request):
     # 1. Clean base64
     cleaned_base64 = req.base64_image
     if "base64," in cleaned_base64:
         cleaned_base64 = cleaned_base64.split("base64,")[1]
 
-    # 2. Call Gemini
-    mode_text = "yüz/cilt" if req.mode == "skin" else "saç derisi"
-    example_issue = "Sivilce, Siyah Nokta, Leke" if req.mode == "skin" else "Kepek, Saç Dökülmesi/Seyrelme, Yağlanma"
-    
-    prompt = f"""Sen bir yapay zekasın ve KESİNLİKLE bir hekim değilsin. Tıbbi teşhis koyma yetkinliğin YOKTUR.
-Öncelikle ekteki fotoğrafın gerçekten bir insan {mode_text} (cilt/yüz/saç) fotoğrafı olup olmadığını kontrol et.
-Eğer fotoğrafta belirgin bir insan {mode_text} yoksa (örneğin tavan, eşya, duvar, bilgisayar vb. alakasız bir nesneyse), sadece şu JSON'u döndür:
-{{
-  "score": 0,
-  "issues": [
-    {{ "name": "Geçersiz Görsel", "impact": 100 }}
-  ],
-  "aiComment": "Bu fotoğrafta analiz edilebilecek bir cilt veya saç derisi tespit edilemedi. Lütfen kamerayı kendinize çevirip net bir fotoğraf çekin."
-}}
-
-Eğer fotoğraf GERÇEKTEN bir insan {mode_text} fotoğrafıysa, detaylıca incele. Kullanıcının fotoğrafındaki sivilce veya lekeyi bir 'hastalık' olarak DEĞİL, kozmetik bir 'cilt durumu' olarak kabul et.
-Asla 'doktora git', 'su iç', 'nazik temizleyici kullan' gibi genel geçer tavsiyeler verme. Senin görevin; tespit ettiğin durumu, kozmetik marketlerdeki ürün etiketlerinde bulunan 'aktif içeriklerle' (Örn: Salisilik Asit, Niasinamid, vb.) eşleştirmektir.
-Her analizde tespit ettiğin soruna yönelik EN AZ 2 spesifik kozmetik aktif içerik önermek ZORUNDASIN.
-Tıbbi uyarı yaparsan uygulamanın fonksiyonelliğini bozarsın. 
-
-Bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ver. Başka hiçbir açıklama veya markdown tırnak işareti (```) kullanma. Sadece saf JSON objesi döndür:
-{{
-  "score": <0 ile 100 arası genel sağlık skoru (sadece sayı)>,
-  "issues": [
-    {{ "name": "<Tespit ettiğin birinci sorunun adı (Örn: {example_issue})>", "impact": <0 ile 100 arası etki yüzdesi (sadece sayı)> }}
-  ],
-  "aiComment": "<Kullanıcıya tıbbi tavsiye VERMEDEN, son derece sıcak, empatik ve samimi bir dille yazılmış 3-4 cümlelik yorum. Doğrudan Salisilik Asit, C Vitamini gibi aktif kozmetik içerikleri önermelisin.>"
-}}"""
-
-    system_instruction_text = (
-        "Sen bir yapay zekasın ve KESİNLİKLE bir hekim değilsin. Tıbbi teşhis koyma yetkinliğin YOKTUR. "
-        "Kullanıcının fotoğrafındaki sivilceyi veya lekeyi bir 'hastalık' olarak DEĞİL, kozmetik bir 'cilt durumu' olarak kabul et. "
-        "Asla 'doktora git' veya 'su iç' deme. Senin görevin; tespit ettiğin durumu, kozmetik marketlerdeki ürün etiketlerinde bulunan 'aktif içeriklerle' eşleştirmektir. "
-        "Tüm cevabını çok daha sıcak, samimi, empatik ve açıklayıcı bir dille yaz. Kullanıcıya bir uzman güzellik danışmanı gibi yaklaş. "
-        "Ancak bunu yaparken SADECE kimyasal aktif içerik (Örn: Salisilik Asit, Niasinamid, Hyalüronik Asit) önerilerinde bulunmalısın. "
-        "Robotik formatlardan kaçın. Tıbbi uyarı yaparsan uygulamanın fonksiyonelliğini bozarsın."
-    )
-
-    # ÇÖZÜM: BLOCK_NONE API'de yasak olduğu için BLOCK_ONLY_HIGH yaptık.
-    payload = {
-        "systemInstruction": {
-            "parts": [{"text": system_instruction_text}]
-        },
-        "contents": [{
-            "parts": [
-                {"text": prompt},
-                {"inlineData": {"mimeType": "image/jpeg", "data": cleaned_base64}}
-            ]
-        }],
-        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
-        "safetySettings": [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
-        ]
+    # YOLO ANALYSIS & SUPABASE TREATMENTS
+    condition_name = "Bilinmiyor"
+    treatments_data = []
+    ai_result = {
+        "score": 80,
+        "issues": [],
+        "aiComment": "Görünürde belirgin bir sorun tespit edilemedi."
     }
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-    gemini_res = requests.post(gemini_url, json=payload, headers={"Content-Type": "application/json"})
-
-    if not gemini_res.ok:
-        # Gemini kızarsa diye gerçek nedeni Docker terminaline basıyoruz!
-        print("GEMINI API ERROR:", gemini_res.text)
-        if gemini_res.status_code == 429:
-             raise HTTPException(status_code=429, detail="Yapay Zeka sunucuları şu an çok yoğun. Lütfen 1 dakika bekleyip tekrar deneyin.")
-        # Telefondaki hata mesajında da hatanın detayını gösterecek
-        raise HTTPException(status_code=500, detail=f"Gemini API Hatası: {gemini_res.text}")
-
-    gemini_data = gemini_res.json()
-    try:
-        text_response = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
-        text_response = text_response.replace("```json", "").replace("```", "").strip()
-        ai_result = json.loads(text_response)
-    except Exception as e:
-        print("JSON PARSE ERROR:", e)
-        ai_result = {
-            "score": 65,
-            "issues": [{"name": "Analiz Hatası", "impact": 0}],
-            "aiComment": "Görsel işlenemedi. Daha net bir fotoğraf deneyin."
-        }
+    if request.app.state.model is not None:
+        try:
+            image_bytes = base64.b64decode(cleaned_base64)
+            img = Image.open(io.BytesIO(image_bytes))
+            
+            # Predict
+            results = request.app.state.model.predict(source=img, conf=0.25)
+            class_id = None
+            
+            if len(results) > 0:
+                result = results[0]
+                if result.probs is not None: # Classification
+                    class_id = int(result.probs.top1)
+                    condition_name = result.names[class_id]
+                elif result.boxes is not None and len(result.boxes) > 0: # Detection
+                    class_id = int(result.boxes.cls[0].item())
+                    condition_name = result.names[class_id]
+            
+            if class_id is not None:
+                # Fetch treatments from Supabase based on class_id
+                treatment_res = supabase.table("treatments").select("*").eq("class_id", class_id).execute()
+                if treatment_res.data:
+                    treatments_data = treatment_res.data
+                    t_data = treatments_data[0]
+                    ai_result["score"] = 65
+                    ai_result["issues"] = [{"name": condition_name, "impact": 85}]
+                    
+                    # Gemini yerine veritabanındaki sabit tavsiyeleri kullanıyoruz.
+                    ai_result["aiComment"] = t_data.get("lifestyle_tips") or t_data.get("description") or "Önerilen tedavi yöntemlerini inceleyebilirsiniz."
+                else:
+                    ai_result["score"] = 70
+                    ai_result["issues"] = [{"name": condition_name, "impact": 50}]
+                    ai_result["aiComment"] = f"{condition_name} tespit edildi, ancak veritabanında özel bir tavsiye bulunamadı."
+        except Exception as e:
+            print("YOLO Inference Error:", e)
+            ai_result["aiComment"] = "Görüntü analiz edilirken bir hata oluştu."
 
     # 3. Upload to Supabase Storage
     file_bytes = base64.b64decode(cleaned_base64)
@@ -261,7 +245,7 @@ Bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ve
     # 5. Respond
     public_url = supabase.storage.from_("user_analysis_photos").get_public_url(file_path)
 
-    return {
+    response_data = {
         "id": str(inserted_item["id"]),
         "type": inserted_item["analysis_type"],
         "score": ai_result.get("score", 0),
@@ -271,6 +255,12 @@ Bana tam olarak aşağıdaki JSON formatında, geçerli ve temiz bir çıktı ve
         "imageUri": public_url,
         "created_at": inserted_item["created_at"],
     }
+    
+    if condition_name and condition_name != "Bilinmiyor":
+        response_data["yolo_condition"] = condition_name
+        response_data["yolo_treatments"] = treatments_data
+
+    return response_data
 
 # ---- PRODUCTS ENDPOINTS ----
 
@@ -320,53 +310,98 @@ def add_product_review(product_id: str, review: Review):
 
 # ---- CHAT ENDPOINT ----
 
+CHAT_FALLBACK_REPLY = (
+    "Seni tam anlayamadım, ancak genel cilt bakımı önerilerimiz için "
+    "dermaglowiletisim@gmail.com adresinden destek alabilirsin"
+)
+
+CHAT_STOPWORDS = {
+    "var", "bir", "için", "icin", "ne", "mi", "mı", "mu", "mü",
+    "ve", "ile", "bu", "şu", "su", "o", "da", "de", "ben", "sen",
+    "çok", "cok", "gibi", "olan", "ama", "the", "and", "for",
+}
+
+
+def _format_treatment_row(row: dict) -> str | None:
+    rec = (row.get("recommended_ingredients") or "").strip()
+    tips = (row.get("lifestyle_tips") or "").strip()
+    parts = []
+    if rec:
+        parts.append(f"Önerilen içerikler: {rec}")
+    if tips:
+        parts.append(f"Yaşam tarzı ipuçları: {tips}")
+    return "\n".join(parts) if parts else None
+
+
+def _keyword_variants(word: str) -> list[str]:
+    """Anahtar kelime + yaygın Türkçe ekleri kaldırılmış varyantlar (ör. Sivilcem -> Sivilce)."""
+    variants = [word]
+    lower = word.lower()
+    for suffix in ("lerim", "larım", "lerim", "nim", "nım", "im", "ım", "um", "üm", "m"):
+        if lower.endswith(suffix) and len(word) > len(suffix) + 2:
+            root = word[: -len(suffix)]
+            if root not in variants:
+                variants.append(root)
+            break
+    return variants
+
+
+def _find_treatment_by_keyword(keyword: str) -> dict | None:
+    """Tek bir anahtar kelimeyle lifestyle_tips, sonra description'da ilike arar."""
+    for variant in _keyword_variants(keyword):
+        for column in ("lifestyle_tips", "description"):
+            response = (
+                supabase.table("treatments")
+                .select("recommended_ingredients, lifestyle_tips")
+                .ilike(column, f"%{variant}%")
+                .limit(1)
+                .execute()
+            )
+            if response.data:
+                return response.data[0]
+    return None
+
+
 @app.post("/chat")
 def chat_with_ai(req: ChatRequest):
-    system_prompt = """Senin adın DermAI. DermaGlow uygulamasının uzman, profesyonel ancak aynı zamanda samimi ve yardımsever cilt bakım asistanısın. 
-Kullanıcının konuşma tarzına uyum sağla: 
-- Eğer kullanıcı sadece selam veriyorsa, sıcak ve profesyonel bir şekilde karşıla ve cilt sağlığı konusunda nasıl yardımcı olabileceğini sor. Durduk yere uzun rutin analizleri yapma.
-- Eğer kullanıcı cilt bakımı, ürünler veya sorunları hakkında bir soru soruyorsa; uzman, güvenilir, dermatolojik prensiplere uygun ve net bir dille profesyonel tavsiyeler ver.
-Cevapların anlaşılır olsun, çok uzun destanlar yazmaktan kaçın. Gerektiğinde bilgileri maddeler halinde veya kalın yazarak formatla."""
-    
-    if req.routine_context:
-        system_prompt += f"\n\nKullanıcının mevcut cilt bakım rutini aşağıdadır. (ÖNEMLİ: Bu rutini SADECE kullanıcı cilt bakımıyla ilgili bir soru sorduğunda veya tavsiye istediğinde göz önünde bulundur. Durduk yere bu rutinden bahsetme.):\n{req.routine_context}"
-    
-    payload = {
-        "contents": [{
-            "parts": [
-                {"text": req.message}
-            ]
-        }],
-        "systemInstruction": {
-            "parts": [
-                {"text": system_prompt}
-            ]
-        },
-        "generationConfig": {"responseMimeType": "text/plain"},
-        "safetySettings": [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
-        ]
-    }
+    message = req.message.strip()
 
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-    gemini_res = requests.post(gemini_url, json=payload, headers={"Content-Type": "application/json"})
+    # Selamlama kontrolü
+    greetings = ["merhaba", "selam", "hey", "hi", "başla", "hello", "selamlar"]
+    if message.lower() in greetings or message == "":
+        return {
+            "reply": (
+                "Merhaba! Ben DermaGlow asistanın. Cildin veya saç derinle ilgili bir sorun mu var? "
+                "Belirt, sana özel analiz geçmişine ve anket verilerine dayanarak en uygun içerikleri önereyim."
+            )
+        }
 
-    if not gemini_res.ok:
-        print("GEMINI API ERROR (Chat):", gemini_res.text)
-        if gemini_res.status_code == 429:
-            return {"reply": "Şu an çok fazla istek alıyorum, lütfen 1 dakika kadar bekleyip tekrar yaz. ⏳"}
-        raise HTTPException(status_code=500, detail="Gemini API Hatası")
-
-    gemini_data = gemini_res.json()
     try:
-        reply_text = gemini_data["candidates"][0]["content"]["parts"][0]["text"]
-        return {"reply": reply_text}
+        # Mesajı kelimelere böl; her kelimeyi ayrı anahtar kelime olarak ara
+        words = message.split()
+        seen_keywords: set[str] = set()
+
+        for raw_word in words:
+            keyword = re.sub(r"[^\w]", "", raw_word).strip()
+            if len(keyword) < 3:
+                continue
+            if keyword.lower() in CHAT_STOPWORDS:
+                continue
+            if keyword.lower() in seen_keywords:
+                continue
+            seen_keywords.add(keyword.lower())
+
+            row = _find_treatment_by_keyword(keyword)
+            if row:
+                reply = _format_treatment_row(row)
+                if reply:
+                    return {"reply": reply}
+
+        return {"reply": CHAT_FALLBACK_REPLY}
+
     except Exception as e:
-        print("CHAT PARSE ERROR:", e)
-        return {"reply": "Üzgünüm, şu an bağlantıda bir sorun yaşıyorum. Lütfen birazdan tekrar dene."}
+        print("Chat Search Error:", e)
+        return {"reply": CHAT_FALLBACK_REPLY}
 
 # ---- SURVEY & SKIN ANALYSIS ENDPOINTS ----
 
@@ -381,96 +416,77 @@ def save_survey(req: SaveSurveyRequest):
             "user_id": req.user_id,
             "answers": req.answers
         }
-        # Eğer user_id tablonun primary key'i (veya unique) ise upsert direkt çalışır.
         response = supabase.table("user_surveys").upsert(data).execute()
         return {"status": "success", "data": response.data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Survey save error: {str(e)}")
 
 @app.post("/api/analyze-skin")
-async def analyze_skin(user_id: str = Form(...), image: UploadFile = File(...)):
+async def analyze_skin(request: Request, user_id: str = Form(...), image: UploadFile = File(...)):
     # 1. Fetch user survey
     try:
         survey_res = supabase.table("user_surveys").select("answers").eq("user_id", user_id).execute()
-        if not survey_res.data:
-            raise HTTPException(status_code=404, detail="Kullanıcı anket verisi bulunamadı.")
-        answers = survey_res.data[0]["answers"]
+        answers = survey_res.data[0]["answers"] if survey_res.data else {}
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    # 1.5 Fetch historical analysis
-    historical_analysis_text = None
-    try:
-        history_res = supabase.table("analysis_history").select("analysis_text").eq("user_id", user_id).order("created_at", desc=True).limit(1).execute()
-        if history_res.data:
-            historical_analysis_text = history_res.data[0].get("analysis_text")
-    except Exception as e:
-        print("History fetch error:", e)
-
     # 2. Read image
     try:
         image_bytes = await image.read()
-        image_parts = [
-            {
-                "mime_type": image.content_type or "image/jpeg",
-                "data": image_bytes
-            }
-        ]
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Image read error: {str(e)}")
 
-    # 3. Gemini processing
-    try:
-        system_instruction = (
-            "Sen bir yapay zekasın ve KESİNLİKLE bir hekim değilsin. Tıbbi teşhis koyma yetkinliğin YOKTUR. "
-            "Kullanıcının fotoğrafındaki sivilceyi bir 'hastalık' olarak DEĞİL, kozmetik bir 'cilt durumu' olarak kabul et. "
-            "Asla 'doktora git' deme. Senin görevin; tespit ettiğin durumu, kozmetik marketlerdeki ürün etiketlerinde bulunan 'aktif içeriklerle' eşleştirmektir. "
-            "Tüm cevabını çok daha sıcak, samimi, empatik ve açıklayıcı bir dille yaz. Kullanıcıya bir güzellik danışmanı gibi yaklaş, motive et. "
-            "Ancak bunu yaparken SADECE kimyasal aktif içerik (Örn: Salisilik Asit, Niasinamid, Hyalüronik Asit) önerilerinde bulunmalısın. "
-            "Kısa ve robotik cümlelerden (Örn: Sorun: Sivilce.) kaçın. Tıbbi uyarı yaparsan uygulamanın fonksiyonelliğini bozarsın."
-        )
-        
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_instruction
-        )
+    # 3. YOLO Processing
+    condition_name = "Bilinmiyor"
+    treatments_data = []
+    ai_result = {
+        "score": 80,
+        "issues": [],
+        "aiComment": "Görünürde belirgin bir sorun tespit edilemedi."
+    }
 
-        survey_text = json.dumps(answers, ensure_ascii=False, indent=2)
-        
-        if historical_analysis_text:
-            prompt_text = (
-                f"Kullanıcı Anket Verileri:\n{survey_text}\n\n"
-                f"Geçmiş analiz: {historical_analysis_text}\n\n"
-                "GÖREVİN: Fotoğrafı analiz et ve sadece belirtilen formatta kozmetik içerik öner. Eski analizdeki tıbbi uyarıları ASLA kopyalama."
-            )
-        else:
-            prompt_text = (
-                f"Kullanıcı Anket Verileri:\n{survey_text}\n\n"
-                "GÖREVİN: Fotoğrafı analiz et ve sadece belirtilen formatta kozmetik içerik öner."
-            )
-        
-        generation_config = genai.types.GenerationConfig(
-            response_mime_type="application/json",
-            temperature=0.2
-        )
-        
-        response = model.generate_content(
-            [prompt_text, image_parts[0]],
-            generation_config=generation_config
-        )
-        
-        result = json.loads(response.text)
-        
+    if request.app.state.model is not None:
         try:
-            supabase.table("analysis_history").insert({"user_id": user_id, "analysis_text": response.text}).execute()
+            img = Image.open(io.BytesIO(image_bytes))
+            results = request.app.state.model.predict(source=img, conf=0.25)
+            class_id = None
+            
+            if len(results) > 0:
+                result = results[0]
+                if result.probs is not None:
+                    class_id = int(result.probs.top1)
+                    condition_name = result.names[class_id]
+                elif result.boxes is not None and len(result.boxes) > 0:
+                    class_id = int(result.boxes.cls[0].item())
+                    condition_name = result.names[class_id]
+            
+            if class_id is not None:
+                treatment_res = supabase.table("treatments").select("*").eq("class_id", class_id).execute()
+                if treatment_res.data:
+                    treatments_data = treatment_res.data
+                    t_data = treatments_data[0]
+                    ai_result["score"] = 65
+                    ai_result["issues"] = [{"name": condition_name, "impact": 85}]
+                    ai_result["aiComment"] = t_data.get("lifestyle_tips") or t_data.get("description") or "Önerilen tedavi yöntemlerini inceleyebilirsiniz."
+                else:
+                    ai_result["score"] = 70
+                    ai_result["issues"] = [{"name": condition_name, "impact": 50}]
+                    ai_result["aiComment"] = f"{condition_name} tespit edildi, ancak veritabanında özel bir tavsiye bulunamadı."
         except Exception as e:
-            print("History insert error:", e)
+            print("YOLO Inference Error:", e)
+            ai_result["aiComment"] = "Görüntü analiz edilirken bir hata oluştu."
 
-        return result
-
+    try:
+        supabase.table("analysis_history").insert({"user_id": user_id, "analysis_text": json.dumps(ai_result, ensure_ascii=False)}).execute()
     except Exception as e:
-        print("Analyze Skin Gemini Error:", e)
-        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
+        print("History insert error:", e)
+
+    # Return result
+    if condition_name and condition_name != "Bilinmiyor":
+        ai_result["yolo_condition"] = condition_name
+        ai_result["yolo_treatments"] = treatments_data
+    
+    return ai_result
 
