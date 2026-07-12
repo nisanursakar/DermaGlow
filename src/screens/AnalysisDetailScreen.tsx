@@ -24,7 +24,9 @@ export default function AnalysisDetailScreen() {
   const { theme } = useTheme();
   const { t } = useLanguage();
 
-  const { type, score, previousScore, imageUri, issues, aiComment: customAiComment } = route.params as any;
+  const { type, score, previousScore, imageUri, issues, aiComment: customAiComment, yolo_condition, yolo_treatments } = route.params as any;
+
+  const treatments = Array.isArray(yolo_treatments) ? yolo_treatments[0] : yolo_treatments;
 
   const [dateFilter, setDateFilter] = useState<FilterType>('weekly');
 
@@ -160,6 +162,50 @@ export default function AnalysisDetailScreen() {
               </View>
             </View>
           ))}
+        </View>
+      )}
+
+      {/* YENİ EKLENEN KISIM: YOLO TREATMENT CARD */}
+      {(yolo_condition || treatments) && (
+        <View style={[styles.aiCard, { backgroundColor: theme.cardBg, shadowColor: theme.shadowStrong }]}>
+          <View style={styles.aiCardHeader}>
+            <Icon name="activity" size={20} color={theme.primary} />
+            <Text style={[styles.aiCardTitle, { color: theme.primary }]}>{yolo_condition || 'Analiz & Tedavi Önerileri'}</Text>
+          </View>
+          
+          {treatments && (
+            <View style={{ marginTop: 8 }}>
+              {treatments.recommended_ingredients && (
+                <View style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Icon name="check-circle" size={16} color={theme.success || '#4CAF50'} />
+                    <Text style={{ fontSize: 14, fontWeight: '700', marginLeft: 6, color: theme.textPrimary }}>Önerilen İçerikler</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 20 }}>{treatments.recommended_ingredients}</Text>
+                </View>
+              )}
+              
+              {treatments.ingredients_to_avoid && (
+                <View style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Icon name="x-circle" size={16} color={theme.error || '#FF3B30'} />
+                    <Text style={{ fontSize: 14, fontWeight: '700', marginLeft: 6, color: theme.textPrimary }}>Kaçınılması Gerekenler</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 20 }}>{treatments.ingredients_to_avoid}</Text>
+                </View>
+              )}
+              
+              {treatments.lifestyle_tips && (
+                <View style={{ marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Icon name="sun" size={16} color={theme.warning || '#FFC107'} />
+                    <Text style={{ fontSize: 14, fontWeight: '700', marginLeft: 6, color: theme.textPrimary }}>Yaşam Tarzı İpuçları</Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 20 }}>{treatments.lifestyle_tips}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
 
