@@ -10,14 +10,14 @@ export default function SplashScreen({ navigation }: Props) {
   const [isVideoReady, setIsVideoReady] = useState(false);
   const hasNavigated = useRef(false);
 
-  const goToLogin = () => {
+  const goToWelcome = () => {
     if (hasNavigated.current) return;
     hasNavigated.current = true;
-    navigation.replace('LoginScreen');
+    navigation.replace('WelcomeScreen');
   };
 
   useEffect(() => {
-    const fallbackTimer = setTimeout(goToLogin, 9000);
+    const fallbackTimer = setTimeout(goToWelcome, 9000);
     return () => clearTimeout(fallbackTimer);
   }, []);
 
@@ -27,7 +27,7 @@ export default function SplashScreen({ navigation }: Props) {
       <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
 
       <Video
-        source={require('../../assets/videos/ıntro_video.mp4.mp4')}
+        source={require('../../assets/videos/intro_video.mp4')}
         style={[styles.video, !isVideoReady && styles.hiddenVideo]}
         // ÇÖZÜM: 'cover' videoyu ekrana yayar, boşluk bırakmaz.
         resizeMode="cover"
@@ -35,8 +35,8 @@ export default function SplashScreen({ navigation }: Props) {
         paused={false}
         repeat={false}
         onLoad={() => setIsVideoReady(true)}
-        onEnd={goToLogin}
-        onError={goToLogin}
+        onEnd={goToWelcome}
+        onError={goToWelcome}
       />
     </View>
   );
@@ -45,7 +45,7 @@ export default function SplashScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F4FF', // Video yüklenene kadar görünen arka plan
+    backgroundColor: '#FFFDF7',
   },
   video: {
     // ÇÖZÜM: absoluteFillObject ile farklı cihazlarda ekranı tam kaplar.

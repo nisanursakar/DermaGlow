@@ -16,6 +16,8 @@ import { useLanguage } from '../context/LanguageContext';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const FAB_SIZE = 60;
+const LOGO_INSET = 6;
+const LOGO_SIZE = FAB_SIZE - LOGO_INSET * 2;
 const INITIAL_RIGHT = 20;
 const INITIAL_BOTTOM = 110;
 
@@ -29,7 +31,7 @@ export default function AIFab() {
   useEffect(() => {
     const syncVisibility = () => {
       const routeName = navigation.getCurrentRoute()?.name;
-      const hiddenRoutes = ['ChatDetailScreen', 'LoginScreen', 'SplashScreen'];
+      const hiddenRoutes = ['ChatDetailScreen', 'LoginScreen', 'SignupScreen', 'WelcomeScreen', 'ForgotPasswordScreen', 'SplashScreen', 'OnboardingSurveyScreen'];
       setIsHidden(!!routeName && hiddenRoutes.includes(routeName));
     };
 
@@ -127,7 +129,11 @@ export default function AIFab() {
           }
         }}
       >
-        <Image source={require('../assets/images/logo.png')} style={styles.logoIcon} resizeMode="contain" />
+        <Image
+          source={require('../assets/images/logo-circle.png')}
+          style={styles.logoIcon}
+          resizeMode="contain"
+        />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -148,6 +154,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     overflow: 'hidden',
+    padding: LOGO_INSET - 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -155,7 +162,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   logoIcon: {
-    width: 42,
-    height: 42,
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: LOGO_SIZE / 2,
   },
 });

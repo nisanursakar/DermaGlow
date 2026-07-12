@@ -356,6 +356,27 @@ function createRoutineStyles(theme: ReturnType<typeof useTheme>['theme']) {
     dayCardNumber: { fontSize: 16, fontWeight: '600' as const, color: theme.textSecondary },
     dayCardNumberSelected: { color: theme.textPrimary, fontWeight: '700' as const },
     dayCardDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.textPrimary, marginTop: 6 },
+    upcomingSection: { marginHorizontal: 20, marginTop: 8, marginBottom: 4 },
+    upcomingTitle: { fontSize: 18, fontWeight: '700' as const, color: theme.textPrimary, marginBottom: 12 },
+    upcomingCard: {
+      backgroundColor: theme.cardBg,
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.glassBorder ?? theme.textSecondary + '20',
+      shadowColor: theme.shadowStrong,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    upcomingEmpty: { fontSize: 15, color: theme.textSecondary, textAlign: 'center' as const, paddingVertical: 8 },
+    upcomingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+    upcomingRowBorder: { borderBottomWidth: 1, borderBottomColor: theme.textSecondary + '25' },
+    upcomingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.primary, marginRight: 12 },
+    upcomingInfo: { flex: 1 },
+    upcomingTaskName: { fontSize: 15, fontWeight: '600' as const, color: theme.textPrimary },
+    upcomingTaskTime: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
     routineCard: { backgroundColor: theme.cardBg, borderRadius: 20, padding: 20, marginHorizontal: 20, marginTop: 20, shadowColor: theme.shadowStrong, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 },
     routineCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
     routineIconContainer: { width: 44, height: 44, borderRadius: 12, backgroundColor: theme.iconBg, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
@@ -453,6 +474,11 @@ export default function RoutineScreen() {
   const morningCompleted = morningTasks.filter((t) => t.completed).length;
   const eveningCompleted = eveningTasks.filter((t) => t.completed).length;
 
+  const upcomingTasks = useMemo(
+    () => [...morningTasks, ...eveningTasks].filter((task) => !task.completed),
+    [morningTasks, eveningTasks],
+  );
+
   const addMorningTask = useCallback(() => {
     const title = newMorningTitle.trim();
     if (!title) return;
@@ -543,6 +569,34 @@ export default function RoutineScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Yaklaşan rutin görevleri */}
+        <View style={styles.upcomingSection}>
+          <Text style={styles.upcomingTitle}>{t('upcomingRoutine')}</Text>
+          <View style={styles.upcomingCard}>
+            {upcomingTasks.length === 0 ? (
+              <Text style={styles.upcomingEmpty}>{t('emptyRoutine')}</Text>
+            ) : (
+              upcomingTasks.map((task, index) => (
+                <View
+                  key={task.id}
+                  style={[
+                    styles.upcomingRow,
+                    index < upcomingTasks.length - 1 && styles.upcomingRowBorder,
+                  ]}
+                >
+                  <View style={styles.upcomingDot} />
+                  <View style={styles.upcomingInfo}>
+                    <Text style={styles.upcomingTaskName}>{task.title}</Text>
+                    {task.time ? (
+                      <Text style={styles.upcomingTaskTime}>{task.time}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
 
         {/* Rutin Kartları */}
         <RoutineCard
