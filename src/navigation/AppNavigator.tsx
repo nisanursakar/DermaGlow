@@ -16,6 +16,8 @@ import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
+import WelcomeScreen from '../screens/WelcomeScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ProductSearchScreen from '../screens/ProductSearchScreen';
@@ -47,6 +49,8 @@ export type RootStackParamList = {
   TermsOfUseScreen: undefined;
   LoginScreen: undefined;
   SignupScreen: undefined;
+  WelcomeScreen: undefined;
+  ForgotPasswordScreen: undefined;
   ResetPasswordScreen: undefined;
   ProductSearchScreen: undefined;
   BarcodeScannerScreen: undefined;
@@ -143,6 +147,11 @@ export default function AppNavigator() {
           options={{ headerShown: true, title: t('termsTitle'), ...headerOptions }}
         />
         <Stack.Screen
+          name="WelcomeScreen"
+          component={WelcomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="LoginScreen"
           component={LoginScreen}
           options={{ headerShown: false }}
@@ -150,6 +159,11 @@ export default function AppNavigator() {
         <Stack.Screen
           name="SignupScreen"
           component={SignupScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ForgotPasswordScreen"
+          component={ForgotPasswordScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
