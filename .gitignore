@@ -1,4 +1,3 @@
-
 .idea/
 node_modules/
 android/.gradle/
@@ -30,7 +29,6 @@ DerivedData
 
 # Android/IntelliJ
 #
-build/
 .idea
 .gradle
 local.properties
@@ -43,7 +41,6 @@ local.properties
 
 # node.js
 #
-node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -82,6 +79,5 @@ yarn-error.log
 f872c0b1017d068e537307294e9fbb418033ba1a
 
 secret.ts
-
-.env
-
+backend/.env
+supabase.js

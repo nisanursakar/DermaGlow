@@ -210,11 +210,17 @@ export default function CameraScreen() {
       mode: currentMode
     };
 
-    const response = await fetch(`${API_URL}/analyze`, {
+    // TAM BURAYA DA EKLİYORUZ: Her ihtimale karşı bu API'ye de URL'den user_id veriyoruz
+    const response = await fetch(`${API_URL}/analyze?user_id=${user.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
+    // EĞER BACKEND LIMIT DOLDU DERSE BİZZAT BURADA YAKALIYORUZ!
+    if (response.status === 403) {
+      throw new Error("403_LIMIT");
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -257,6 +263,8 @@ export default function CameraScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const formData = new FormData();
+
+          // 1. FastAPI'nin asıl analiz fonksiyonu için Form içine ekliyoruz:
           formData.append('user_id', user.id);
 
           const fileName = compressedUri.split('/').pop() || 'photo.jpg';
@@ -268,7 +276,8 @@ export default function CameraScreen() {
             type: fileType,
           } as any);
 
-          const apiResponse = await fetch(`${API_URL}/api/analyze-skin`, {
+          // URL'NİN SONUNA ?user_id= EKLENDİ!
+          const apiResponse = await fetch(`${API_URL}/api/analyze-skin?user_id=${user.id}`, {
             method: 'POST',
             body: formData,
             headers: { 'Accept': 'application/json' },
@@ -278,6 +287,29 @@ export default function CameraScreen() {
             const responseData = await apiResponse.json();
             setResult(responseData);
             console.log("Yeni API Başarılı:", responseData);
+          } else if (apiResponse.status === 403) {
+            // LİMİT DOLDU YAKALANIYOR!
+            Alert.alert(
+              "Limit Doldu",
+              "Günlük ücretsiz analiz limitinize ulaştınız! Sınırsız analiz için Premium'a geçin.",
+              [
+                { text: "İptal", style: "cancel" },
+                {
+                  text: "Premium'a Geç",
+                  onPress: () => {
+                    const parentNav = navigation.getParent();
+                    if (parentNav) {
+                      parentNav.navigate('Premium' as any); // Adı 'PremiumScreen' ise burayı değiştir
+                    } else {
+                      (navigation as any).navigate('Premium');
+                    }
+                  }
+                }
+              ]
+            );
+            setLoading(false);
+            setAnalyzing(false);
+            return; // LİMİT DOLDUYSA İŞLEMİ BURADA KES, DEVAM ETME!
           } else {
             console.error("Yeni API Hatası:", await apiResponse.text());
           }
@@ -324,9 +356,33 @@ export default function CameraScreen() {
     } catch (e: any) {
       console.error(e);
       setAnalyzing(false);
+
+      // EĞER İÇERİDEKİ FONKSİYONDAN 403 PATLARSA ONU DA BURADA YAKALIYORUZ!
+      if (e.message === "403_LIMIT") {
+        Alert.alert(
+          "Limit Doldu",
+          "Günlük ücretsiz analiz limitinize ulaştınız! Sınırsız analiz için Premium'a geçin.",
+          [
+            { text: "İptal", style: "cancel" },
+            {
+              text: "Premium'a Geç",
+              onPress: () => {
+                const parentNav = navigation.getParent();
+                if (parentNav) {
+                  parentNav.navigate('Premium' as any);
+                } else {
+                  (navigation as any).navigate('Premium');
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+
       Alert.alert('İşlem Başarısız', `Fotoğraf işlenemedi. Detay: ${e?.message || JSON.stringify(e)}`);
     }
-  }, [mode, history, hasPermission, navigateToAnalysis]);
+  }, [mode, history, hasPermission, navigateToAnalysis, navigation]);
 
   // ÇÖZÜM BURADA: Galeriden seçilen fotoğraf artık kamerayla aynı kompresyon ve okuma süzgecinden geçiyor
   const handleGalleryPick = useCallback(async () => {
@@ -384,9 +440,34 @@ export default function CameraScreen() {
     } catch (e: any) {
       console.error(e);
       setAnalyzing(false);
+
+      // GALERİ İÇİN 403 KONTROLÜ!
+      if (e.message === "403_LIMIT") {
+        Alert.alert(
+          "Limit Doldu",
+          "Günlük ücretsiz analiz limitinize ulaştınız! Sınırsız analiz için Premium'a geçin.",
+          [
+            { text: "İptal", style: "cancel" },
+            {
+              text: "Premium'a Geç",
+              // GÜNCELLENEN KISIM: Yönlendiriciyi parent (ana) dizine çıkartarak sayfayı bulmasını sağlıyoruz
+              onPress: () => {
+                const parentNav = navigation.getParent();
+                if (parentNav) {
+                  parentNav.navigate('Premium' as any); // Adı 'PremiumScreen' ise burayı 'PremiumScreen' yapabilirsin
+                } else {
+                  (navigation as any).navigate('Premium');
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+
       Alert.alert('Hata', 'Galeri açılamadı veya analiz yapılamadı. Detay: ' + (e?.message || 'Bilinmeyen hata'));
     }
-  }, [mode, history, navigateToAnalysis]);
+  }, [mode, history, navigateToAnalysis, navigation]);
 
   const handleHistoryItemPress = useCallback((item: ExtendedHistoryItem) => {
     navigateToAnalysis({

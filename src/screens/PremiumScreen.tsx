@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert
 } from 'react-native';
+import { supabase } from '../../supabase';
 import Icon from 'react-native-vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -31,6 +33,48 @@ export default function PremiumScreen() {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(theme, insets), [theme, insets]);
+
+  // Dinamik Kullanıcı ID'si
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleUpgrade = async () => {
+    if (!currentUserId) {
+      Alert.alert('Bilgi', 'Kullanıcı bilgisi yükleniyor, lütfen bekleyin...');
+      return;
+    }
+
+    try {
+      // 192.168.1.X kısmını bilgisayarının güncel yerel IP adresiyle değiştirmeyi unutma!
+      const response = await fetch('http://192.168.1.41:8000/api/upgrade-premium', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `user_id=${currentUserId}`
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Tebrikler!', 'Sınırsız analiz ve barkod tarama özellikleri açıldı.');
+      } else {
+        Alert.alert('Hata', 'Bir hata oluştu: ' + (data.detail || 'Bilinmeyen Hata'));
+      }
+    } catch (error) {
+      console.error('Bağlantı hatası:', error);
+      Alert.alert('Bağlantı Hatası', 'Sunucuya bağlanılamadı. IP adresini ve Uvicorn sunucusunu kontrol et!');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -110,7 +154,7 @@ export default function PremiumScreen() {
           <PremiumButton
             label={t('upgradeNow')}
             icon="arrow-up-circle"
-            onPress={() => {}}
+            onPress={handleUpgrade}
             style={styles.upgradeBtn}
           />
 

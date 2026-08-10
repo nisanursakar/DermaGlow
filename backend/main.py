@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from fastapi import Depends
 import os
 import requests
 import base64
@@ -13,6 +15,7 @@ import re
 from PIL import Image
 from contextlib import asynccontextmanager
 from ultralytics import YOLO
+from datetime import date
 
 load_dotenv()
 
@@ -56,6 +59,33 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing Supabase configuration in .env file")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# --- YENİ EKLENEN LİMİT BEKÇİSİ (Doğrudan main.py içinde) ---
+def check_premium_limit(user_id: str):
+    try:
+        # 1. Kullanıcının premium durumunu kontrol et
+        profile_response = supabase.table("profiles").select("is_premium").eq("id", user_id).execute()
+        if profile_response.data:
+            is_premium = profile_response.data[0].get("is_premium", False)
+            if is_premium:
+                return True # Premium kullanıcı, sınır yok
+
+        # 2. Premium değilse bugünkü analiz sayısını bul
+        today = date.today().isoformat()
+        res = supabase.table("analysis_results").select("id", count="exact").eq("user_id", user_id).gte("created_at", today).execute()
+
+        count = res.count if res.count is not None else len(res.data)
+
+        if count >= 3:
+            raise HTTPException(status_code=403, detail="Günlük ücretsiz analiz limitinize ulaştınız.")
+
+        return True
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        print("Limit kontrol hatası:", e)
+        raise HTTPException(status_code=500, detail="Limit kontrolü yapılamadı.")
+# -----------------------------------------------------------
 
 # Modeller
 class User(BaseModel):
@@ -165,7 +195,7 @@ def get_analysis_history(user_id: str):
         })
     return results
 
-@app.post("/analyze")
+@app.post("/analyze", dependencies=[Depends(check_premium_limit)])
 def analyze_image(req: AnalyzeRequest, request: Request):
     # 1. Clean base64
     cleaned_base64 = req.base64_image
@@ -185,29 +215,29 @@ def analyze_image(req: AnalyzeRequest, request: Request):
         try:
             image_bytes = base64.b64decode(cleaned_base64)
             img = Image.open(io.BytesIO(image_bytes))
-            
+
             # Predict
             results = request.app.state.model.predict(source=img, conf=0.25)
-            class_id = None
-            
+            condition_id = None
+
             if len(results) > 0:
                 result = results[0]
                 if result.probs is not None: # Classification
-                    class_id = int(result.probs.top1)
-                    condition_name = result.names[class_id]
+                    condition_id = int(result.probs.top1)
+                    condition_name = result.names[condition_id]
                 elif result.boxes is not None and len(result.boxes) > 0: # Detection
-                    class_id = int(result.boxes.cls[0].item())
-                    condition_name = result.names[class_id]
-            
-            if class_id is not None:
-                # Fetch treatments from Supabase based on class_id
-                treatment_res = supabase.table("treatments").select("*").eq("class_id", class_id).execute()
+                    condition_id = int(result.boxes.cls[0].item())
+                    condition_name = result.names[condition_id]
+
+            if condition_id is not None:
+                # Fetch treatments from Supabase based on condition_id
+                treatment_res = supabase.table("treatments").select("*").eq("condition_id", condition_id).execute()
                 if treatment_res.data:
                     treatments_data = treatment_res.data
                     t_data = treatments_data[0]
                     ai_result["score"] = 65
                     ai_result["issues"] = [{"name": condition_name, "impact": 85}]
-                    
+
                     # Gemini yerine veritabanındaki sabit tavsiyeleri kullanıyoruz.
                     ai_result["aiComment"] = t_data.get("lifestyle_tips") or t_data.get("description") or "Önerilen tedavi yöntemlerini inceleyebilirsiniz."
                 else:
@@ -255,7 +285,7 @@ def analyze_image(req: AnalyzeRequest, request: Request):
         "imageUri": public_url,
         "created_at": inserted_item["created_at"],
     }
-    
+
     if condition_name and condition_name != "Bilinmiyor":
         response_data["yolo_condition"] = condition_name
         response_data["yolo_treatments"] = treatments_data
@@ -283,11 +313,11 @@ def search_products(q: str):
 
     return list(merged_results.values())
 
-@app.get("/products/barcode/{code}")
-def get_product_by_barcode(code: str):
+@app.get("/products/barcode/{code}", dependencies=[Depends(check_premium_limit)])
+def get_product_by_barcode(code: str, user_id: str):
     response = supabase.table("products").select("*").eq("barcode", code).execute()
     if not response.data:
-         raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail="Product not found")
     return response.data[0]
 
 @app.get("/products/{product_id}")
@@ -421,7 +451,17 @@ def save_survey(req: SaveSurveyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Survey save error: {str(e)}")
 
-@app.post("/api/analyze-skin")
+@app.post("/api/upgrade-premium")
+async def upgrade_to_premium(user_id: str = Form(...)):
+    try:
+        # Supabase'e gidip o kullanıcının profilini buluyor ve is_premium = True yapıyor
+        supabase.table("profiles").update({"is_premium": True}).eq("id", user_id).execute()
+        return {"status": "success", "message": "DermaGlow Premium başarıyla aktif edildi!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Premium yükseltme hatası: {str(e)}")
+
+
+@app.post("/api/analyze-skin", dependencies=[Depends(check_premium_limit)])
 async def analyze_skin(request: Request, user_id: str = Form(...), image: UploadFile = File(...)):
     # 1. Fetch user survey
     try:
@@ -451,19 +491,19 @@ async def analyze_skin(request: Request, user_id: str = Form(...), image: Upload
         try:
             img = Image.open(io.BytesIO(image_bytes))
             results = request.app.state.model.predict(source=img, conf=0.25)
-            class_id = None
-            
+            condition_id = None
+
             if len(results) > 0:
                 result = results[0]
                 if result.probs is not None:
-                    class_id = int(result.probs.top1)
-                    condition_name = result.names[class_id]
+                    condition_id = int(result.probs.top1)
+                    condition_name = result.names[condition_id]
                 elif result.boxes is not None and len(result.boxes) > 0:
-                    class_id = int(result.boxes.cls[0].item())
-                    condition_name = result.names[class_id]
-            
-            if class_id is not None:
-                treatment_res = supabase.table("treatments").select("*").eq("class_id", class_id).execute()
+                    condition_id = int(result.boxes.cls[0].item())
+                    condition_name = result.names[condition_id]
+
+            if condition_id is not None:
+                treatment_res = supabase.table("treatments").select("*").eq("condition_id", condition_id).execute()
                 if treatment_res.data:
                     treatments_data = treatment_res.data
                     t_data = treatments_data[0]
@@ -487,6 +527,5 @@ async def analyze_skin(request: Request, user_id: str = Form(...), image: Upload
     if condition_name and condition_name != "Bilinmiyor":
         ai_result["yolo_condition"] = condition_name
         ai_result["yolo_treatments"] = treatments_data
-    
-    return ai_result
 
+    return ai_result
